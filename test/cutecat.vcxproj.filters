@@ -1,0 +1,31 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <ClInclude Include="..\cutecat.h" />
+    <ClInclude Include="gtest\gtest.h">
+      <Filter>test\googletest</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <Filter Include="test">
+      <UniqueIdentifier>{89ebed43-0e40-4a9a-8a9a-ffae035813d9}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="test\googletest">
+      <UniqueIdentifier>{ca9888df-4575-4d37-bb6a-39bcadc3005f}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="gtest\gtest_main.cc">
+      <Filter>test\googletest</Filter>
+    </ClCompile>
+    <ClCompile Include="gtest\gtest-all.cc">
+      <Filter>test\googletest</Filter>
+    </ClCompile>
+    <ClCompile Include="constexpr_test.cpp">
+      <Filter>test</Filter>
+    </ClCompile>
+    <ClCompile Include="string_test.cpp">
+      <Filter>test</Filter>
+    </ClCompile>
+  </ItemGroup>
+</Project>
