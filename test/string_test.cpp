@@ -18,12 +18,18 @@ TEST (StringTest, TestEmptyString) {
 }
 
 
+TEST (StringTest, TestStaticStringLengthDeduction) { 
+
+	cutecat::StaticBaseStringWithKnownLength<char,5> s = cutecat::FromStatic("blorb");
+}
+
+
 TEST (StringTest, TestStaticString) { 
 	const char* c = "foo";
 
 	// create two strings from a single static string
-	cutecat::BaseString<char> str = cutecat::StaticBaseString<char>(c);
-	cutecat::BaseString<char> str2 = cutecat::StaticBaseString<char>(c);
+	cutecat::BaseString<char> str = cutecat::FromStatic(c);
+	cutecat::BaseString<char> str2 = cutecat::FromStatic(c);
 
 	// they should be equal
 	ASSERT_EQ(3, str.length());

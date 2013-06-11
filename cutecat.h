@@ -250,6 +250,7 @@ namespace cutecat {
 
 	template<typename T> class BaseString;
 
+
 	//----------------------------------------------------------------------------------------
 	/** Static string base class
 	 *
@@ -265,6 +266,99 @@ namespace cutecat {
 
 		// TODO: get length from compiler
 		StaticBaseString(const T* data)
+			: data(data)
+		{
+			assert(data != nullptr);
+		}
+
+	private:
+		const T* data;
+	};
+
+
+	//----------------------------------------------------------------------------------------
+	/** Static string base class
+	 *
+	 *  TODO
+	 */
+	//----------------------------------------------------------------------------------------
+	template<typename T, std::size_t n>
+	class StaticBaseStringWithKnownLength
+	{
+		friend class BaseString<T>;
+
+	public:
+
+		// TODO: get length from compiler
+		StaticBaseStringWithKnownLength(const T* data)
+			: data(data)
+		{
+			assert(data != nullptr);
+		}
+
+	private:
+		const T* data;
+	};
+
+
+	//----------------------------------------------------------------------------------------
+	/** Create a string source from a string pointer in static storage (i.e. a string
+	 *  literal). String source objects can be passed to the #cutecat::BaseString constructor
+	 *  to wrap them in a real string object.
+	 *
+	 *  @param data[in] Pointer to the first character of the string. The string must be
+	 *                  zero-terminated.
+	 *  @return A string source that can then be passed to a #cutecat::BaseString constructor
+	 */
+	//----------------------------------------------------------------------------------------
+	template<typename T>
+		StaticBaseString< typename std::remove_const< typename std::remove_pointer<T>::type >::type > 
+			FromStatic(const T data, 
+
+		// this is necessary to explicitly disambiguate calls to the array versions -
+		// if this was not here, arrays would implicitly decay to pointers and both
+		// FromStatic() methods would then candidates of same rank.
+		typename std::enable_if<
+			std::is_pointer<T>::value
+		>::type* = nullptr
+	)
+	{
+		return StaticBaseString<typename std::remove_const< typename std::remove_pointer<T>::type >::type>(data);
+	}
+
+
+	//----------------------------------------------------------------------------------------
+	/** Create a #BaseStringSource<T> from a string array in static storage (i.e. a string
+	 *  literal). This overload evaluates the length of the argument at compile-time and
+	 *  thus does not require a runtime call to get the length of the string.
+	 *
+	 *  @param data[in] Compile-time array containing a zero-terminated string.
+	 *  @return A string source that can then be passed to a #cutecat::BaseString constructor
+	 */
+	//----------------------------------------------------------------------------------------
+	template<typename T, std::size_t n>
+	StaticBaseStringWithKnownLength<T,n-1> FromStatic(const T (&data)[n])
+	{
+		assert(::strlen(data) == n-1);
+		return StaticBaseStringWithKnownLength<T,n-1>(data);
+	}
+
+
+	//----------------------------------------------------------------------------------------
+	/** Dynamic string base class
+	 *
+	 *  TODO
+	 */
+	//----------------------------------------------------------------------------------------
+	template<typename T>
+	class DynamicBaseString 
+	{
+		friend class BaseString<T>;
+
+	public:
+
+		// TODO: get length from compiler
+		DynamicBaseString(const T* data)
 			: data(data)
 		{
 			assert(data != nullptr);
@@ -338,6 +432,7 @@ namespace cutecat {
 			} PACK_STRUCT intern;
 
 
+
 			static_assert(sizeof(external_storage_block) == sizeof(internalized_storage_block), "TODO");
 			static_assert(sizeof(external_storage_block) % sizeof(T) == 0, "TODO");
 			static_assert( (1 << (sizeof(T)*8)) > MAX_INTERNAL_LEN, "TODO");
@@ -352,6 +447,7 @@ namespace cutecat {
 		BaseString()
 			: flags(FLAG_INTERN)
 		{
+			// the 0-string is internalized
 			intern.len = 0;
 			intern.buff[0] = 0;
 			data = intern.buff;
@@ -391,6 +487,15 @@ namespace cutecat {
 			ext.len = ::strlen(data);
 		}
 
+
+		template<std::size_t n>
+		BaseString(StaticBaseStringWithKnownLength<T,n>& other)
+			: data(const_cast<T*>(other.data))
+			, flags(FLAG_STATIC)
+		{
+			ext.len = n;
+		}
+
 		//BaseString(StringSlice& slice);
 
 	public:
@@ -412,7 +517,8 @@ namespace cutecat {
 
 				if ((flags & (FLAG_STATIC | FLAG_INTERN)) == 0) {
 					if(other.ext.len <= ext.len) {
-						// other is a static string, but we have enough space to store it, copy it
+						// other is a static string, but we have enough 
+						// space to store it, so we do a full copy.
 						flags = 0;
 						::strcpy(data, other.data);
 						ext.len = other.ext.len;
