@@ -251,54 +251,83 @@ namespace cutecat {
 	template<typename T> class BaseString;
 
 
-	//----------------------------------------------------------------------------------------
-	/** Static string base class
-	 *
-	 *  TODO
-	 */
-	//----------------------------------------------------------------------------------------
-	template<typename T>
-	class StaticBaseString 
-	{
-		friend class BaseString<T>;
+	namespace detail {
 
-	public:
-
-		// TODO: get length from compiler
-		StaticBaseString(const T* data)
-			: data(data)
+		//----------------------------------------------------------------------------------------
+		/** Static string base class
+		 *
+		 *  TODO
+		 */
+		//----------------------------------------------------------------------------------------
+		template<typename T>
+		class StaticBaseString 
 		{
-			assert(data != nullptr);
-		}
+			friend class BaseString<T>;
 
-	private:
-		const T* data;
-	};
+		public:
+
+			// TODO: get length from compiler
+			StaticBaseString(const T* data)
+				: data(data)
+			{
+				assert(data != nullptr);
+			}
+
+		private:
+			const T* data;
+		};
 
 
-	//----------------------------------------------------------------------------------------
-	/** Static string base class
-	 *
-	 *  TODO
-	 */
-	//----------------------------------------------------------------------------------------
-	template<typename T, std::size_t n>
-	class StaticBaseStringWithKnownLength
-	{
-		friend class BaseString<T>;
-
-	public:
-
-		// TODO: get length from compiler
-		StaticBaseStringWithKnownLength(const T* data)
-			: data(data)
+		//----------------------------------------------------------------------------------------
+		/** Static string base class
+		 *
+		 *  TODO
+		 */
+		//----------------------------------------------------------------------------------------
+		template<typename T, std::size_t n>
+		class StaticBaseStringWithKnownLength
 		{
-			assert(data != nullptr);
-		}
+			friend class BaseString<T>;
 
-	private:
-		const T* data;
-	};
+		public:
+
+			// TODO: get length from compiler
+			StaticBaseStringWithKnownLength(const T* data)
+				: data(data)
+			{
+				assert(data != nullptr);
+			}
+
+		private:
+			const T* data;
+		};
+
+		//----------------------------------------------------------------------------------------
+		/** Dynamic string base class
+		 *
+		 *  TODO
+		 */
+		//----------------------------------------------------------------------------------------
+		template<typename T>
+		class DynamicBaseString 
+		{
+			friend class BaseString<T>;
+
+		public:
+
+			// TODO: get length from compiler
+			DynamicBaseString(const T* data)
+				: data(data)
+			{
+				assert(data != nullptr);
+			}
+
+		private:
+			const T* data;
+		};
+
+
+	} // namespace detail
 
 
 	//----------------------------------------------------------------------------------------
@@ -312,7 +341,7 @@ namespace cutecat {
 	 */
 	//----------------------------------------------------------------------------------------
 	template<typename T>
-		StaticBaseString< typename std::remove_const< typename std::remove_pointer<T>::type >::type > 
+		detail::StaticBaseString< typename std::remove_const< typename std::remove_pointer<T>::type >::type > 
 			FromStatic(const T data, 
 
 		// this is necessary to explicitly disambiguate calls to the array versions -
@@ -323,12 +352,12 @@ namespace cutecat {
 		>::type* = nullptr
 	)
 	{
-		return StaticBaseString<typename std::remove_const< typename std::remove_pointer<T>::type >::type>(data);
+		return detail::StaticBaseString<typename std::remove_const< typename std::remove_pointer<T>::type >::type>(data);
 	}
 
 
 	//----------------------------------------------------------------------------------------
-	/** Create a #BaseStringSource<T> from a string array in static storage (i.e. a string
+	/** Create a string source from a string array in static storage (i.e. a string
 	 *  literal). This overload evaluates the length of the argument at compile-time and
 	 *  thus does not require a runtime call to get the length of the string.
 	 *
@@ -337,36 +366,51 @@ namespace cutecat {
 	 */
 	//----------------------------------------------------------------------------------------
 	template<typename T, std::size_t n>
-	StaticBaseStringWithKnownLength<T,n-1> FromStatic(const T (&data)[n])
+	detail::StaticBaseStringWithKnownLength<T,n-1> FromStatic(const T (&data)[n])
 	{
 		assert(::strlen(data) == n-1);
-		return StaticBaseStringWithKnownLength<T,n-1>(data);
+		return detail::StaticBaseStringWithKnownLength<T,n-1>(data);
 	}
 
+	///{
 
 	//----------------------------------------------------------------------------------------
-	/** Dynamic string base class
+	/** TODO
 	 *
-	 *  TODO
+	 *  @param data[in] 
+	 *  @return A string source that can then be passed to a #cutecat::BaseString constructor
 	 */
 	//----------------------------------------------------------------------------------------
 	template<typename T>
-	class DynamicBaseString 
+	detail::DynamicBaseString<T> FromRaw(const T* src)
 	{
-		friend class BaseString<T>;
+		assert(src != null);
+		return detail::DynamicBaseString<T>(src);
+	}
 
-	public:
+	//----------------------------------------------------------------------------------------
+	template<typename T>
+	detail::DynamicBaseString<T> FromRaw(const T* src, std::size_t len)
+	{
+		assert(src != nullptr);
+		assert(::strlen(src) == len);
+		return detail::DynamicBaseString<T>(src, len);
+	}
 
-		// TODO: get length from compiler
-		DynamicBaseString(const T* data)
-			: data(data)
-		{
-			assert(data != nullptr);
-		}
+	///}
 
-	private:
-		const T* data;
-	};
+	//----------------------------------------------------------------------------------------
+	/** TODO
+	 *
+	 *  @param data[in] 
+	 *  @return A string source that can then be passed to a #cutecat::BaseString constructor
+	 */
+	//----------------------------------------------------------------------------------------
+	template<typename T, typename TTraits, typename TAlloc>
+	detail::DynamicBaseString<T> FromStd(const std::basic_string<T, TTraits, TAlloc>& src)
+	{
+		return detail::DynamicBaseString<T>(src.c_str(), src.length());
+	}
 
 
 	// disable any padding
@@ -480,7 +524,7 @@ namespace cutecat {
 		}
 
 
-		BaseString(StaticBaseString<T>& other)
+		BaseString(detail::StaticBaseString<T>& other)
 			: data(const_cast<T*>(other.data))
 			, flags(FLAG_STATIC)
 		{
@@ -489,7 +533,7 @@ namespace cutecat {
 
 
 		template<std::size_t n>
-		BaseString(StaticBaseStringWithKnownLength<T,n>& other)
+		BaseString(detail::StaticBaseStringWithKnownLength<T,n>& other)
 			: data(const_cast<T*>(other.data))
 			, flags(FLAG_STATIC)
 		{

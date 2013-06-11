@@ -20,7 +20,7 @@ TEST (StringTest, TestEmptyString) {
 
 TEST (StringTest, TestStaticStringLengthDeduction) { 
 
-	cutecat::StaticBaseStringWithKnownLength<char,5> s = cutecat::FromStatic("blorb");
+	cutecat::detail::StaticBaseStringWithKnownLength<char,5> s = cutecat::FromStatic("blorb");
 }
 
 
