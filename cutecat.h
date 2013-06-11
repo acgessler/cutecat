@@ -498,6 +498,9 @@ namespace cutecat {
 		}
 		
 
+		// ---------------------------------------------------------------------
+		/** TODO */
+		// ---------------------------------------------------------------------
 		BaseString(const BaseString& other)
 			: data(other.data)
 			, flags(other.flags)
@@ -515,6 +518,9 @@ namespace cutecat {
 		}
 
 
+		// ---------------------------------------------------------------------
+		/** TODO */
+		// ---------------------------------------------------------------------
 		BaseString(BaseString&& other)
 			: data(other.data)
 			, flags(other.flags)
@@ -524,6 +530,9 @@ namespace cutecat {
 		}
 
 
+		// ---------------------------------------------------------------------
+		/** TODO */
+		// ---------------------------------------------------------------------
 		BaseString(detail::StaticBaseString<T>& other)
 			: data(const_cast<T*>(other.data))
 			, flags(FLAG_STATIC)
@@ -532,6 +541,9 @@ namespace cutecat {
 		}
 
 
+		// ---------------------------------------------------------------------
+		/** TODO */
+		// ---------------------------------------------------------------------
 		template<std::size_t n>
 		BaseString(detail::StaticBaseStringWithKnownLength<T,n>& other)
 			: data(const_cast<T*>(other.data))
@@ -555,6 +567,9 @@ namespace cutecat {
 
 		//BaseString& operator= (const StringSlice& other);
 
+		// ---------------------------------------------------------------------
+		/** TODO */
+		// ---------------------------------------------------------------------
 		BaseString& operator= (const BaseString& other)
 		{
 			if(other.flags & FLAG_STATIC) {
@@ -591,9 +606,45 @@ namespace cutecat {
 			return *this;
 		}
 
+		// TODO: debug checks on moved strings
 
+		// ---------------------------------------------------------------------
+		/** TODO */
+		// ---------------------------------------------------------------------
 		BaseString& operator= (BaseString&& other)
 		{
+			if(other.flags & FLAG_STATIC) {
+
+				if ((flags & (FLAG_STATIC | FLAG_INTERN)) == 0) {
+					if(other.ext.len <= ext.len) {
+						// other is a static string, but we have enough 
+						// space to store it, so we do a full copy.
+						flags = 0;
+						::strcpy(data, other.data);
+						ext.len = other.ext.len;
+						return *this;
+					}
+					delete[] data;
+				}
+
+				flags = FLAG_STATIC;
+				data = other.data;
+				ext.len = other.ext.len;
+				return *this;
+			}
+
+			if(other.flags & FLAG_INTERN) {
+				data = intern.buff;
+				intern = other.intern;
+				flags = FLAG_INTERN;
+				return;
+			}
+
+			delete[] data;
+			ext = other.ext;
+
+			data = other.data;
+			other.data = nullptr;
 			return *this;
 		}
 
