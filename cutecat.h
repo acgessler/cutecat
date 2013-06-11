@@ -38,11 +38,6 @@ Usage: TODO
 
 namespace cutecat {
 
-	class String;
-	class StringSlice;
-	class FormatBundle;
-	class StringExpression;
-
 #if 0
 	//----------------------------------------------------------------------------------------
 	/** Gets the length of a string.
@@ -253,21 +248,32 @@ namespace cutecat {
 #endif // 0
 
 
+	template<typename T> class BaseString;
+
+	//----------------------------------------------------------------------------------------
+	/** Static string base class
+	 *
+	 *  TODO
+	 */
+	//----------------------------------------------------------------------------------------
 	template<typename T>
 	class StaticBaseString 
 	{
+		friend class BaseString<T>;
+
 	public:
 
 		// TODO: get length from compiler
 		StaticBaseString(const T* data)
 			: data(data)
 		{
-			assert(str != nullptr);
+			assert(data != nullptr);
 		}
 
 	private:
 		const T* data;
 	};
+
 
 	// disable any padding
 #if defined(_MSC_VER) ||  defined(__BORLANDC__) ||	defined (__BCPLUSPLUS__) 
@@ -280,17 +286,29 @@ namespace cutecat {
 #endif
 
 
-
+	//----------------------------------------------------------------------------------------
+	/** String base class
+	 *
+	 *  TODO
+	 */
+	//----------------------------------------------------------------------------------------
 	template<typename T>
 	class BaseString 
 	{
 	private:
 
+		friend bool operator==(const BaseString& a, const BaseString& b);
+		friend bool operator!=(const BaseString& a, const BaseString& b);
+
+	private:
+
 		
 		enum {
+				// string data lives in static storage and is assumed to be immutable
 			  FLAG_STATIC   = 0x1
 			, FLAG_UNUSED0	= 0x2
 			, FLAG_UNUSED1	= 0x4
+				// string data is internalized, intern.len gives the string length
 			, FLAG_INTERN   = (sizeof(std::size_t) - sizeof(T)) * 8
 		};
 
@@ -299,20 +317,26 @@ namespace cutecat {
 
 		union {
 			struct external_storage_block {
-				std::size_t capacity;
-				std::size_t len;
+				// raw storage capacity, does include terminal
+				std::size_t capacity;		
+				// does not include terminal
+				std::size_t len;			
 			} PACK_STRUCT ext;
 
 			enum {
+				// size of buffer for internalized strings, includes terminal 0
 				  INTERNAL_BUFF_SIZE = (sizeof(external_storage_block) / sizeof(T)) - 1
+
+				// maximum length of internalized strings
 				, MAX_INTERNAL_LEN   = INTERNAL_BUFF_SIZE - 1
 			};
 
 
 			struct internalized_storage_block { 
 				T buff[INTERNAL_BUFF_SIZE];
-				T len; // TODO: make unsg.
+				T len; // TODO: make unsg and move to front
 			} PACK_STRUCT intern;
+
 
 			static_assert(sizeof(external_storage_block) == sizeof(internalized_storage_block), "TODO");
 			static_assert(sizeof(external_storage_block) % sizeof(T) == 0, "TODO");
@@ -361,7 +385,7 @@ namespace cutecat {
 
 
 		BaseString(StaticBaseString<T>& other)
-			: data(other.data)
+			: data(const_cast<T*>(other.data))
 			, flags(FLAG_STATIC)
 		{
 			ext.len = ::strlen(data);
@@ -381,8 +405,39 @@ namespace cutecat {
 	public:
 
 		//BaseString& operator= (const StringSlice& other);
+
 		BaseString& operator= (const BaseString& other)
 		{
+			if(other.flags & FLAG_STATIC) {
+
+				if ((flags & (FLAG_STATIC | FLAG_INTERN)) == 0) {
+					if(other.ext.len <= ext.len) {
+						// other is a static string, but we have enough space to store it, copy it
+						flags = 0;
+						::strcpy(data, other.data);
+						ext.len = other.ext.len;
+						return *this;
+					}
+					delete[] data;
+				}
+
+				flags = FLAG_STATIC;
+				data = other.data;
+				ext.len = other.ext.len;
+				return *this;
+			}
+
+			if(other.flags & FLAG_INTERN) {
+				data = intern.buff;
+				intern = other.intern;
+				flags = FLAG_INTERN;
+				return;
+			}
+
+			ext = other.ext;
+			data = new char[ext.capacity];
+			::strcpy(data, other.data);	
+
 			return *this;
 		}
 
@@ -392,17 +447,27 @@ namespace cutecat {
 			return *this;
 		}
 
+
 	public:
 
-		//StringSlice<BaseString> operator[] (const Slice& sl);
-		//StringSlice<const BaseString> operator[] (const Slice& sl) const;
+		/*
+		BaseStringSlice<BaseString> operator[] (const Slice& sl) {
+			return BaseStringSlice<BaseString>(this, sl);
+		}
+
+
+		BaseStringSlice<const BaseString> operator[] (const Slice& sl) const {
+			return BaseStringSlice<const BaseString>(this, sl);
+		} */
+
 
 		T operator[] (std::size_t index) const {
 			assert(index < length());
 			return data[index];
 		}
 
-		T& operator[] (std::size_t index) {
+
+		void set(std::size_t index, T value) {
 			assert(index < length());
 
 			if (flags & FLAG_STATIC) {
@@ -412,19 +477,27 @@ namespace cutecat {
 			return data[index];
 		}
 
+
+		T get(std::size_t index) const {
+			return data[index];
+		}
+
+
 	public:
 
-		const T* get() const {
+		const T* get_array() const {
 			return data;
 		}
 
-		T* get_writable() {
+		T* get_writable_array() {
 			if (flags & FLAG_STATIC) {
 				// copy-on-write
 				make_nonstatic();
 			}
 			return data;
 		}
+
+	public:
 
 		std::size_t length() const {
 			// TODO: BigEndian
@@ -447,7 +520,8 @@ namespace cutecat {
 				return;
 			}
 
-			ext.capacity = len;
+			ext.capacity = len + 1;
+			data = new char[ext.capacity];
 			::strcpy(data, src);
 		}
 	};
@@ -459,6 +533,12 @@ namespace cutecat {
 #undef PACK_STRUCT
 
 
+	//----------------------------------------------------------------------------------------
+	/** String base class
+	 *
+	 *  TODO
+	 */
+	//----------------------------------------------------------------------------------------
 	template<typename T>
 	class BaseStringAdapter
 	{
@@ -466,16 +546,37 @@ namespace cutecat {
 	};
 
 
-	bool operator==(const String& a, const String& b);
-	bool operator!=(const String& a, const String& b);
+	//----------------------------------------------------------------------------------------
+	/** String comparison
+	 *
+	 *  TODO
+	 */
+	//----------------------------------------------------------------------------------------
+	template<typename T>
+	inline bool operator==(const BaseString<T>&  a, const BaseString<T>& b)
+	{
+		// do data comparison since getting the length takes extra bit fiddling
+		return !::strcmp(a.data, b.data);
+	}
 
+
+	template<typename T>
+	inline bool operator!=(const BaseString<T>& a, const BaseString<T>& b)
+	{
+		// do data comparison since getting the length takes extra bit fiddling
+		return !!::strcmp(a.data, b.data);
+	}
+
+
+	/*
 	bool operator==(const String& a, const StringSlice& b);
 	bool operator!=(const String& a, const StringSlice& b);
 
 	bool operator==(const StringSlice& a, const StringSlice& b);
 	bool operator!=(const StringSlice& a, const StringSlice& b);
+	*/
 
-}
+} // namespace cutecat
 
 
 #endif // INCLUDED_CUTECAT_H
