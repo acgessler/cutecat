@@ -58,6 +58,7 @@ TEST (StringTest, TestStaticString_Internalized) {
 	// now modify one of them - this should trigger COW, 
 	// but the resulting string should be internalized
 	char* d = str.get_writable_array();
+	ASSERT_EQ(0, ::strcmp(d,c));
 	d[2] = 'r';
 
 	// and str2 still should have its old value
@@ -115,6 +116,7 @@ TEST (StringTest, TestStaticString_NotInternalized) {
 	// now modify one of them - this should trigger COW, 
 	// but the resulting string is too long to be internalized
 	char* d = str.get_writable_array();
+	ASSERT_EQ(0, ::strcmp(d,c));
 	d[0] = 'r';
 
 	// and str2 still should have its old value
@@ -143,23 +145,31 @@ TEST (StringTest, TestMoveConstructionFromStatic) {
 	cutecat::BaseString<char> str = cutecat::FromStatic(c);
 	ASSERT_EQ(6, str.length());
 	ASSERT_NE(nullptr, str.get_array());
-	ASSERT_EQ('f', str[0]);
-	ASSERT_EQ('o', str[1]);
-	ASSERT_EQ('o', str[2]);
-	ASSERT_EQ('b', str[3]);
-	ASSERT_EQ('a', str[4]);
-	ASSERT_EQ('r', str[5]);
+	ASSERT_EQ(0, ::strcmp(str.get_array(),c));
 
 	cutecat::BaseString<char> str2(std::move(str));
 
 	ASSERT_EQ(6, str2.length());
 	ASSERT_NE(nullptr, str2.get_array());
-	ASSERT_EQ('f', str2[0]);
-	ASSERT_EQ('o', str2[1]);
-	ASSERT_EQ('o', str2[2]);
-	ASSERT_EQ('b', str2[3]);
-	ASSERT_EQ('a', str2[4]);
-	ASSERT_EQ('r', str2[5]);
+	ASSERT_EQ(0, ::strcmp(str2.get_array(),c));
+}
+
+
+//----------------------------------------------------------------------------------------
+TEST (StringTest, TestMoveConstructionFromInternalized) { 
+	const char* c = "foo";
+
+	// create a string from a single static string
+	cutecat::BaseString<char> str = cutecat::FromRaw(c);
+	ASSERT_EQ(3, str.length());
+	ASSERT_NE(nullptr, str.get_array());
+	ASSERT_EQ(0, ::strcmp(str.get_array(),c));
+
+	cutecat::BaseString<char> str2(std::move(str));
+
+	ASSERT_EQ(3, str2.length());
+	ASSERT_NE(nullptr, str2.get_array());
+	ASSERT_EQ(0, ::strcmp(str2.get_array(),c));
 }
 
 /* vi: set shiftwidth=4 tabstop=4: */ 

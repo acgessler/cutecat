@@ -315,15 +315,24 @@ namespace cutecat {
 
 		public:
 
-			// TODO: get length from compiler
 			DynamicBaseString(const T* data)
 				: data(data)
+				, len(::strlen(data))
+			{
+				assert(data != nullptr);
+			}
+
+
+			DynamicBaseString(const T* data, size_t len)
+				: data(data)
+				, len(len)
 			{
 				assert(data != nullptr);
 			}
 
 		private:
 			const T* data;
+			const size_t len;
 		};
 
 
@@ -384,7 +393,6 @@ namespace cutecat {
 	template<typename T>
 	detail::DynamicBaseString<T> FromRaw(const T* src)
 	{
-		assert(src != null);
 		return detail::DynamicBaseString<T>(src);
 	}
 
@@ -392,8 +400,6 @@ namespace cutecat {
 	template<typename T>
 	detail::DynamicBaseString<T> FromRaw(const T* src, std::size_t len)
 	{
-		assert(src != nullptr);
-		assert(::strlen(src) == len);
 		return detail::DynamicBaseString<T>(src, len);
 	}
 
@@ -411,6 +417,58 @@ namespace cutecat {
 	{
 		return detail::DynamicBaseString<T>(src.c_str(), src.length());
 	}
+
+
+
+
+	//----------------------------------------------------------------------------------------
+	/** Represents a slice (subset) of a string.
+	 *
+	 *  A slice is created TODO
+	 */
+	//----------------------------------------------------------------------------------------
+	template<typename T>
+	class BaseStringSlice
+	{
+		friend class BaseString<T>;
+		BaseStringSlice(T* data, T* data_end)
+			: data(data)
+			, data_end(end)
+		{
+
+		}
+
+	public:
+
+		T& operator[] (size_t index) {
+			assert(data + index < data_end);
+			return data[index];
+		}
+
+		const typename std::enable_if< !std::is_const<T>::value, T& 
+			>::type operator[] (size_t index) const 
+		{
+			assert(data + index < data_end);
+			return data[index];
+		}
+
+	public:
+
+		// std::iterator_traits supplies the necessary iterator meta info for
+		// raw pointers automatically
+		T* begin() {
+			return data;
+		}
+
+		T* end() {
+			return data_end;
+		}
+
+	private:
+		T* data;
+		T* data_end;
+	};
+
 
 
 	// disable any padding
@@ -488,6 +546,9 @@ namespace cutecat {
 	
 	public:
 		
+		// ---------------------------------------------------------------------
+		/** TODO */
+		// ---------------------------------------------------------------------
 		BaseString()
 			: flags(FLAG_INTERN)
 		{
@@ -552,7 +613,49 @@ namespace cutecat {
 			ext.len = n;
 		}
 
-		//BaseString(StringSlice& slice);
+
+		// ---------------------------------------------------------------------
+		/** TODO */
+		// ---------------------------------------------------------------------
+		BaseString(detail::DynamicBaseString<T>& other)
+			: flags()
+		{
+			const size_t len = other.len;
+			if(len <= MAX_INTERNAL_LEN) {
+				intern.len = len;
+				data = intern.buff;
+				flags = FLAG_INTERN;
+			}
+			else {
+				ext.len = len;
+				ext.capacity = len + 1;
+				data = new T[ext.capacity];
+			}
+			::strcpy(data, other.data);
+		}
+
+
+		// ---------------------------------------------------------------------
+		/** TODO */
+		// ---------------------------------------------------------------------
+		explicit BaseString(const BaseStringSlice<T>& slice)
+			: flags()
+		{
+			const size_t len = slice.length();
+			if(len <= MAX_INTERNAL_LEN) {
+				intern.len = len;
+				data = intern.buff;
+				flags = FLAG_INTERN;
+				
+			}
+			else {
+				// TODO: handle static here as well?
+				ext.len = len;
+				ext.capacity = len + 1;
+				data = new T[ext.capacity];
+			}
+			::strcpy(data, slice.begin());
+		}
 
 	public:
 
@@ -565,13 +668,52 @@ namespace cutecat {
 
 	public:
 
-		//BaseString& operator= (const StringSlice& other);
+
+		// ---------------------------------------------------------------------
+		/** TODO */
+		// ---------------------------------------------------------------------
+		BaseString& operator= (const BaseStringSlice<T>& other)
+		{
+			const size_t len = other.length();
+			if(len <= MAX_INTERNAL_LEN) {
+				if ((flags & (FLAG_STATIC | FLAG_INTERN)) == 0) {
+					delete[] data;
+				}
+
+				data = intern.buff;
+				flags = FLAG_INTERN;
+				intern.len = len; // TODO proper cast
+			}
+			else {
+				if ((flags & (FLAG_STATIC | FLAG_INTERN)) == 0) {
+					if (len > ext.len) {
+						delete[] data;
+
+						ext.capacity = len + 1;
+						data = new T[ext.capacity];
+					}
+					assert(ext.capacity >= len + 1);
+				}
+				else {
+					ext.capacity = len + 1;
+					data = new T[ext.capacity];
+				}
+				ext.len = len;
+				flags = 0;
+			}
+			::strcpy(data, other.begin());
+			return *this;
+		}
+
 
 		// ---------------------------------------------------------------------
 		/** TODO */
 		// ---------------------------------------------------------------------
 		BaseString& operator= (const BaseString& other)
 		{
+			if(this == &other) {
+				return *this;
+			}
 			if(other.flags & FLAG_STATIC) {
 
 				if ((flags & (FLAG_STATIC | FLAG_INTERN)) == 0) {
@@ -593,6 +735,9 @@ namespace cutecat {
 			}
 
 			if(other.flags & FLAG_INTERN) {
+				if ((flags & (FLAG_STATIC | FLAG_INTERN)) == 0) {
+					delete[] data;
+				}
 				data = intern.buff;
 				intern = other.intern;
 				flags = FLAG_INTERN;
@@ -613,6 +758,9 @@ namespace cutecat {
 		// ---------------------------------------------------------------------
 		BaseString& operator= (BaseString&& other)
 		{
+			if(this == &other) {
+				return *this;
+			}
 			if(other.flags & FLAG_STATIC) {
 
 				if ((flags & (FLAG_STATIC | FLAG_INTERN)) == 0) {
@@ -634,6 +782,9 @@ namespace cutecat {
 			}
 
 			if(other.flags & FLAG_INTERN) {
+				if ((flags & (FLAG_STATIC | FLAG_INTERN)) == 0) {
+					delete[] data;
+				}
 				data = intern.buff;
 				intern = other.intern;
 				flags = FLAG_INTERN;
@@ -651,24 +802,49 @@ namespace cutecat {
 
 	public:
 
-		/*
-		BaseStringSlice<BaseString> operator[] (const Slice& sl) {
-			return BaseStringSlice<BaseString>(this, sl);
+		
+		// ---------------------------------------------------------------------
+		/** TODO */
+		// ------------------------------- --------------------------------------
+		BaseStringSlice<T> set(std::size_t begin, std::size_t end) {
+			assert(begin < end && end <= length());
+
+			if (flags & FLAG_STATIC) {
+				// copy-on-write
+				make_nonstatic();
+			}
+			return BaseStringSlice<T>(data + begin, data + end);
 		}
 
 
-		BaseStringSlice<const BaseString> operator[] (const Slice& sl) const {
-			return BaseStringSlice<const BaseString>(this, sl);
-		} */
+		// ---------------------------------------------------------------------
+		/** TODO */
+		// ---------------------------------------------------------------------
+		BaseStringSlice<const T> get(std::size_t begin, std::size_t end) const {
+			return BaseStringSlice<const T>(data + begin, data + end);
+		} 
 
 
+		BaseStringSlice<const T> operator()(std::size_t begin, std::size_t end) const {
+			return BaseStringSlice<const T>(data + begin, data + end);
+		} 
+
+	public:
+
+
+		// ---------------------------------------------------------------------
+		/** TODO */
+		// ---------------------------------------------------------------------
 		T operator[] (std::size_t index) const {
 			assert(index < length());
 			return data[index];
 		}
 
 
-		void set(std::size_t index, T value) {
+		// ---------------------------------------------------------------------
+		/** TODO */
+		// ---------------------------------------------------------------------
+		T& set(std::size_t index) {
 			assert(index < length());
 
 			if (flags & FLAG_STATIC) {
@@ -679,6 +855,9 @@ namespace cutecat {
 		}
 
 
+		// ---------------------------------------------------------------------
+		/** TODO */
+		// ---------------------------------------------------------------------
 		T get(std::size_t index) const {
 			return data[index];
 		}
@@ -686,10 +865,18 @@ namespace cutecat {
 
 	public:
 
+
+		// ---------------------------------------------------------------------
+		/** TODO */
+		// ---------------------------------------------------------------------
 		const T* get_array() const {
 			return data;
 		}
 
+
+		// ---------------------------------------------------------------------
+		/** TODO */
+		// ---------------------------------------------------------------------
 		T* get_writable_array() {
 			if (flags & FLAG_STATIC) {
 				// copy-on-write
@@ -700,6 +887,9 @@ namespace cutecat {
 
 	public:
 
+		// ---------------------------------------------------------------------
+		/** TODO */
+		// ---------------------------------------------------------------------
 		std::size_t length() const {
 			// TODO: BigEndian
 			return ext.len >> (flags & FLAG_INTERN);
