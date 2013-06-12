@@ -5,6 +5,18 @@
 
 //using namespace cutecat;
 
+namespace {
+
+static const char* lorem_ipsum = "Lorem ipsum dolor sit amet, consetetur sadipscing elitr, "
+	"sed diam nonumy eirmod tempor invidunt ut labore et dolore magna aliquyam erat, "
+	"sed diam voluptua. At vero eos et accusam et justo duo dolores et ea rebum. Stet "
+	"clita kasd gubergren, no sea takimata sanctus est Lorem ipsum dolor sit amet. "
+	"Lorem ipsum dolor sit amet, consetetur sadipscing elitr, sed diam nonumy eirmod "
+	"tempor invidunt ut labore et dolore magna aliquyam erat, sed diam voluptua. At "
+	"vero eos et accusam et justo duo dolores et ea rebum. Stet clita kasd gubergren, "
+	"no sea takimata sanctus est Lorem ipsum dolor sit amet.";
+
+}
 
 //----------------------------------------------------------------------------------------
 TEST (StringTest, TestEmptyString) { 
@@ -86,14 +98,7 @@ TEST (StringTest, TestStaticString_Internalized) {
 //----------------------------------------------------------------------------------------
 TEST (StringTest, TestStaticString_NotInternalized) { 
 
-	const char* c = "Lorem ipsum dolor sit amet, consetetur sadipscing elitr, "
-		"sed diam nonumy eirmod tempor invidunt ut labore et dolore magna aliquyam erat, "
-		"sed diam voluptua. At vero eos et accusam et justo duo dolores et ea rebum. Stet "
-		"clita kasd gubergren, no sea takimata sanctus est Lorem ipsum dolor sit amet. "
-		"Lorem ipsum dolor sit amet, consetetur sadipscing elitr, sed diam nonumy eirmod "
-		"tempor invidunt ut labore et dolore magna aliquyam erat, sed diam voluptua. At "
-		"vero eos et accusam et justo duo dolores et ea rebum. Stet clita kasd gubergren, "
-		"no sea takimata sanctus est Lorem ipsum dolor sit amet.";
+	const char* c = lorem_ipsum;
 
 	// create two strings from a single static string
 	cutecat::BaseString<char> str = cutecat::FromStatic(c);
@@ -159,7 +164,6 @@ TEST (StringTest, TestMoveConstructionFromStatic) {
 TEST (StringTest, TestMoveConstructionFromInternalized) { 
 	const char* c = "foo";
 
-	// create a string from a single static string
 	cutecat::BaseString<char> str = cutecat::FromRaw(c);
 	ASSERT_EQ(3, str.length());
 	ASSERT_NE(nullptr, str.get_array());
@@ -168,6 +172,24 @@ TEST (StringTest, TestMoveConstructionFromInternalized) {
 	cutecat::BaseString<char> str2(std::move(str));
 
 	ASSERT_EQ(3, str2.length());
+	ASSERT_NE(nullptr, str2.get_array());
+	ASSERT_EQ(0, ::strcmp(str2.get_array(),c));
+}
+
+
+//----------------------------------------------------------------------------------------
+TEST (StringTest, TestMoveConstruction) { 
+	const char* c = lorem_ipsum;
+
+	// create a string from a single static string
+	cutecat::BaseString<char> str = cutecat::FromRaw(c);
+	ASSERT_EQ(::strlen(c), str.length());
+	ASSERT_NE(nullptr, str.get_array());
+	ASSERT_EQ(0, ::strcmp(str.get_array(),c));
+
+	cutecat::BaseString<char> str2(std::move(str));
+
+	ASSERT_EQ(::strlen(c), str2.length());
 	ASSERT_NE(nullptr, str2.get_array());
 	ASSERT_EQ(0, ::strcmp(str2.get_array(),c));
 }
