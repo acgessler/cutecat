@@ -431,31 +431,45 @@ namespace cutecat {
 	class BaseStringSlice
 	{
 		friend class BaseString<T>;
+
+	public:
+
 		BaseStringSlice(T* data, T* data_end)
 			: data(data)
-			, data_end(end)
+			, data_end(data_end)
 		{
 
 		}
 
 	public:
+
+		T operator[] (size_t index) const {
+			assert(data + index < data_end);
+			return data[index];
+		}
+
 
 		T& operator[] (size_t index) {
 			assert(data + index < data_end);
 			return data[index];
 		}
 
-		const typename std::enable_if< !std::is_const<T>::value, T& 
-			>::type operator[] (size_t index) const 
-		{
-			assert(data + index < data_end);
-			return data[index];
+	public:
+
+		// decay to const slice
+		operator BaseStringSlice<const T> () {
+			return BaseStringSlice<const T>(data, data_end);
 		}
+
+
+	public:
+		//const BaseStringSlice<T>&  operator=(BaseStringSlice<const T>& other);
 
 	public:
 
 		// std::iterator_traits supplies the necessary iterator meta info for
 		// raw pointers automatically
+
 		T* begin() {
 			return data;
 		}
@@ -464,9 +478,66 @@ namespace cutecat {
 			return data_end;
 		}
 
+		const T* begin() const {
+			return data;
+		}
+
+		const T* end() const {
+			return data_end;
+		}
+
+	public:
+
+		std::size_t length() const {
+			return static_cast<std::size_t>(data_end - data);
+		}
+
 	private:
 		T* data;
 		T* data_end;
+	};
+
+
+	template<typename T>
+	class BaseStringSlice<const T>
+	{
+		friend class BaseString<const T>;
+
+	public:
+
+		BaseStringSlice(const T* data, const T* data_end)
+			: data(data)
+			, data_end(data_end)
+		{
+
+		}
+
+	public:
+
+		T operator[] (size_t index) const {
+			assert(data + index < data_end);
+			return data[index];
+		}
+
+	public:
+
+		const T* begin() const {
+			return data;
+		}
+
+		const T* end() const {
+			return data_end;
+		}
+
+	public:
+
+		std::size_t length() const {
+			return static_cast<std::size_t>(data_end - data);
+		}
+
+	private:
+		const T* data;
+		const T* data_end;
 	};
 
 
@@ -493,8 +564,6 @@ namespace cutecat {
 	{
 	private:
 
-		friend bool operator==(const BaseString& a, const BaseString& b);
-		friend bool operator!=(const BaseString& a, const BaseString& b);
 
 	private:
 
@@ -947,7 +1016,7 @@ namespace cutecat {
 	inline bool operator==(const BaseString<T>&  a, const BaseString<T>& b)
 	{
 		// do data comparison since getting the length takes extra bit fiddling
-		return !::strcmp(a.data, b.data);
+		return !::strcmp(a.get_array(), b.get_array());
 	}
 
 
@@ -955,17 +1024,123 @@ namespace cutecat {
 	inline bool operator!=(const BaseString<T>& a, const BaseString<T>& b)
 	{
 		// do data comparison since getting the length takes extra bit fiddling
-		return !!::strcmp(a.data, b.data);
+		return !!::strcmp(a.get_array(), b.get_array());
 	}
 
 
-	/*
-	bool operator==(const String& a, const StringSlice& b);
-	bool operator!=(const String& a, const StringSlice& b);
+	//----------------------------------------------------------------------------------------
+	/** String comparison
+	 *
+	 *  TODO
+	 */
+	//----------------------------------------------------------------------------------------
+	template<typename TLeft, typename TRight>
+		typename std::enable_if<
+			std::is_same<
+				typename std::remove_const<TLeft>::type,
+				typename std::remove_const<TRight>::type
+			>::value, 
+	bool>::type 
+	operator==(const BaseString<TLeft>& a, const BaseStringSlice<TRight>& b)
+	{
+		return b == a;
+	}
 
-	bool operator==(const StringSlice& a, const StringSlice& b);
-	bool operator!=(const StringSlice& a, const StringSlice& b);
-	*/
+
+	template<typename TLeft, typename TRight>
+		typename std::enable_if<
+			std::is_same<
+				typename std::remove_const<TLeft>::type,
+				typename std::remove_const<TRight>::type
+			>::value, 
+	bool>::type 
+	operator!=(const BaseString<TLeft>& a, const BaseStringSlice<TRight>& b)
+	{
+		return b != a;
+	}
+
+
+	template<typename TLeft, typename TRight>
+		typename std::enable_if<
+			std::is_same<
+				typename std::remove_const<TLeft>::type,
+				typename std::remove_const<TRight>::type
+			>::value, 
+	bool>::type 
+	operator==(const BaseStringSlice<TLeft>& b, const BaseString<TRight>& a)
+	{
+		const std::size_t len = a.length();
+		if(len != b.length()) {
+			return false;
+		}
+		return !::memcmp(a.get_array(), b.begin(), len);
+	}
+
+
+	template<typename TLeft, typename TRight>
+		typename std::enable_if<
+			std::is_same<
+				typename std::remove_const<TLeft>::type,
+				typename std::remove_const<TRight>::type
+			>::value, 
+	bool>::type 
+	operator!=(const BaseStringSlice<TLeft>& b, const BaseString<TRight>& a)
+	{
+		const std::size_t len = a.length();
+		if(len != b.length()) {
+			return true;
+		}
+		return !!::memcmp(a.get_array(), b.begin(), len);
+	}
+
+
+
+	//----------------------------------------------------------------------------------------
+	/** String comparison
+	 *
+	 *  TODO
+	 */
+	//----------------------------------------------------------------------------------------
+	template<typename TLeft, typename TRight>
+		typename std::enable_if<
+			std::is_same<
+				typename std::remove_const<TLeft>::type,
+				typename std::remove_const<TRight>::type
+			>::value, 
+	bool>::type 
+	operator==(const BaseStringSlice<TLeft>& a, const BaseStringSlice<TRight>& b)
+	{
+		const std::size_t len = a.length();
+		if(len != b.length()) {
+			return false;
+		}
+		return !::memcmp(a.begin(), b.begin(), len);
+	}
+
+
+
+	//----------------------------------------------------------------------------------------
+	/** String comparison
+	 *
+	 *  TODO
+	 */
+	//----------------------------------------------------------------------------------------
+	template<typename TLeft, typename TRight>
+		typename std::enable_if<
+			std::is_same<
+				typename std::remove_const<TLeft>::type,
+				typename std::remove_const<TRight>::type
+			>::value, 
+	bool>::type 
+	operator!=(const BaseStringSlice<TLeft>& a, const BaseStringSlice<TRight>& b)
+	{
+		const std::size_t len = a.length();
+		if(len != b.length()) {
+			return true;
+		}
+		return !!::memcmp(a.begin(), b.begin(), len);
+	}
+	
 
 } // namespace cutecat
 

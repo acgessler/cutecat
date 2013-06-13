@@ -194,5 +194,51 @@ TEST (StringTest, TestMoveConstruction) {
 	ASSERT_EQ(0, ::strcmp(str2.get_array(),c));
 }
 
+
+//----------------------------------------------------------------------------------------
+TEST (StringTest, TestStringComparison) { 
+	const char* c = lorem_ipsum;
+
+	// create a string from a single static string
+	cutecat::BaseString<char> str = cutecat::FromRaw(c);
+	cutecat::BaseString<char> str2 = cutecat::FromRaw(c);
+	cutecat::BaseString<char> str3 = cutecat::FromRaw(c);
+	str3.set(0) = 'a';
+
+	// string == string
+	ASSERT_EQ(str, str2);
+	ASSERT_NE(str, str3);
+
+	cutecat::BaseStringSlice<const char> slice = str.get(0, 15);
+	cutecat::BaseStringSlice<const char> slice2 = str2.get(0, 15);
+	// const slice == const slice
+	ASSERT_EQ(slice, slice2);
+
+	slice2 = str2.get(0, 16);
+	ASSERT_NE(slice, slice2);
+
+	slice = str.get(1, 16);
+	ASSERT_NE(slice, slice2);
+
+	// check comparison against prefixes to make sure the slice boundary is honoured
+	cutecat::BaseString<char> strPrefix = cutecat::FromStatic("Lorem");
+	slice = str.get(0, 5);
+	ASSERT_EQ(slice, strPrefix);
+	ASSERT_EQ(strPrefix, slice);
+
+	slice = str.get(0, 6);
+	ASSERT_NE(slice, strPrefix);
+	ASSERT_NE(strPrefix, slice);
+
+	cutecat::BaseStringSlice<const char> sliceFull = str.get(0, str.length());
+	cutecat::BaseStringSlice<const char> sliceFull2 = str2.get(0, str.length());
+
+	// (const) slice == string and vice versa
+	ASSERT_EQ(str, sliceFull);
+	ASSERT_EQ(sliceFull2, str2);
+	ASSERT_EQ(str2, sliceFull);
+	ASSERT_EQ(sliceFull, str);
+}
+
 /* vi: set shiftwidth=4 tabstop=4: */ 
 
