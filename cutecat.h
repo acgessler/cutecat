@@ -32,7 +32,7 @@ For more information, see https://github.com/acgessler/cutecat meow
 Usage: TODO
 
 */
-
+#pragma intrinsic(memcpy)
 #ifndef INCLUDED_CUTECAT_H
 #define INCLUDED_CUTECAT_H
 
@@ -419,6 +419,17 @@ namespace cutecat {
 	}
 
 
+	namespace detail {
+		template<typename TLeft, typename TRight, typename TResult> struct enable_if_same_or_const
+		{
+			typedef typename std::enable_if<
+				std::is_same<
+					typename std::remove_const<TLeft>::type,
+					typename std::remove_const<TRight>::type
+				>::value, 
+			TResult>::type type;
+		};
+	}
 
 
 	//----------------------------------------------------------------------------------------
@@ -432,23 +443,30 @@ namespace cutecat {
 	{
 		friend class BaseString<T>;
 
-	public:
+	private:
 
-		BaseStringSlice(T* data, T* data_end)
+		BaseStringSlice(T* data, T* data_end, BaseString<T>& src)
 			: data(data)
 			, data_end(data_end)
+			, src(src)
 		{
 
 		}
 
 	public:
 
+		// ---------------------------------------------------------------------
+		/** TODO */
+		// ---------------------------------------------------------------------
 		T operator[] (size_t index) const {
 			assert(data + index < data_end);
 			return data[index];
 		}
 
 
+		// ---------------------------------------------------------------------
+		/** TODO */
+		// ---------------------------------------------------------------------
 		T& operator[] (size_t index) {
 			assert(data + index < data_end);
 			return data[index];
@@ -456,32 +474,93 @@ namespace cutecat {
 
 	public:
 
-		// decay to const slice
+		// ---------------------------------------------------------------------
+		/** TODO */
+		// ---------------------------------------------------------------------
 		operator BaseStringSlice<const T> () {
 			return BaseStringSlice<const T>(data, data_end);
 		}
 
 
 	public:
-		//const BaseStringSlice<T>&  operator=(BaseStringSlice<const T>& other);
+
+
+		// ---------------------------------------------------------------------
+		/** TODO */
+		// ---------------------------------------------------------------------
+		BaseStringSlice& operator=(const BaseStringSlice<T>& other)
+		{
+			if(other.src == src) {
+				src._sub<true>(data, data_end, other.begin(), other.end());
+			}
+			else {
+				src._sub<false>(data, data_end, other.begin(), other.end());
+			}
+			return *this;
+		}
+
+
+		// ---------------------------------------------------------------------
+		/** TODO */
+		// ---------------------------------------------------------------------
+		BaseStringSlice& operator=(const BaseStringSlice<const T>& other)
+		{
+			const T* obegin = other.begin(), *oend = other.end();
+			if(obegin >= data && oend <= data_end) {
+				src._sub<true>(data, data_end, obegin, oend);
+			}
+			else {
+				src._sub<false>(data, data_end, obegin, oend);
+			}
+			return *this;
+		}
+
+
+		// ---------------------------------------------------------------------
+		/** TODO */
+		// ---------------------------------------------------------------------
+		BaseStringSlice<T>& operator=(const BaseString<T>& other)
+		{
+			if(other == src) {
+				src._sub<true>(diff, data, data_end, other.begin(), other.end());
+			}
+			else {
+				src._sub<false>(diff, data, data_end, other.begin(), other.end());
+			}
+			return *this;
+		}
 
 	public:
 
-		// std::iterator_traits supplies the necessary iterator meta info for
+		// std::iterator_traits<T> supplies the necessary iterator meta info for
 		// raw pointers automatically
 
+		// ---------------------------------------------------------------------
+		/** TODO */
+		// ---------------------------------------------------------------------
 		T* begin() {
 			return data;
 		}
 
+
+		// ---------------------------------------------------------------------
+		/** TODO */
+		// ---------------------------------------------------------------------
 		T* end() {
 			return data_end;
 		}
 
+
+		// ---------------------------------------------------------------------
+		/** TODO */
+		// ---------------------------------------------------------------------
 		const T* begin() const {
 			return data;
 		}
 
+		// ---------------------------------------------------------------------
+		/** TODO */
+		// ---------------------------------------------------------------------
 		const T* end() const {
 			return data_end;
 		}
@@ -495,15 +574,23 @@ namespace cutecat {
 	private:
 		T* data;
 		T* data_end;
+		BaseString<T>& src;
 	};
 
 
+	//----------------------------------------------------------------------------------------
+	/** Specialization of BaseStringSlice<T> for const T.
+	 *
+	 *  TODO
+	 */
+	//----------------------------------------------------------------------------------------
 	template<typename T>
 	class BaseStringSlice<const T>
 	{
 		friend class BaseString<const T>;
+		friend class BaseString<T>;
 
-	public:
+	private:
 
 		BaseStringSlice(const T* data, const T* data_end)
 			: data(data)
@@ -514,6 +601,9 @@ namespace cutecat {
 
 	public:
 
+		// ---------------------------------------------------------------------
+		/** TODO */
+		// ---------------------------------------------------------------------
 		T operator[] (size_t index) const {
 			assert(data + index < data_end);
 			return data[index];
@@ -521,16 +611,26 @@ namespace cutecat {
 
 	public:
 
+		// ---------------------------------------------------------------------
+		/** TODO */
+		// ---------------------------------------------------------------------
 		const T* begin() const {
 			return data;
 		}
 
+		// ---------------------------------------------------------------------
+		/** TODO */
+		// ---------------------------------------------------------------------
 		const T* end() const {
 			return data_end;
 		}
 
 	public:
 
+
+		// ---------------------------------------------------------------------
+		/** TODO */
+		// ---------------------------------------------------------------------
 		std::size_t length() const {
 			return static_cast<std::size_t>(data_end - data);
 		}
@@ -539,6 +639,23 @@ namespace cutecat {
 		const T* data;
 		const T* data_end;
 	};
+
+
+	namespace detail {
+
+		template<bool expect_overlapping>
+		__forceinline void fast_copy(void* d, const void* s, std::size_t l)
+		{
+			::memcpy(d,s,l);
+		}
+
+
+		template<>
+		__forceinline void fast_copy<true>(void* d, const void* s, std::size_t l)
+		{
+			::memmove(d,s,l);
+		}
+	}
 
 
 
@@ -564,6 +681,7 @@ namespace cutecat {
 	{
 	private:
 
+		friend class BaseStringSlice<T>;
 
 	private:
 
@@ -876,13 +994,13 @@ namespace cutecat {
 		/** TODO */
 		// ------------------------------- --------------------------------------
 		BaseStringSlice<T> set(std::size_t begin, std::size_t end) {
-			assert(begin < end && end <= length());
+			assert(begin <= end && end <= length());
 
 			if (flags & FLAG_STATIC) {
 				// copy-on-write
-				make_nonstatic();
+				_make_nonstatic();
 			}
-			return BaseStringSlice<T>(data + begin, data + end);
+			return BaseStringSlice<T>(data + begin, data + end, *this);
 		}
 
 
@@ -918,7 +1036,7 @@ namespace cutecat {
 
 			if (flags & FLAG_STATIC) {
 				 // copy-on-write
-				make_nonstatic();
+				_make_nonstatic();
 			}
 			return data[index];
 		}
@@ -949,7 +1067,7 @@ namespace cutecat {
 		T* get_writable_array() {
 			if (flags & FLAG_STATIC) {
 				// copy-on-write
-				make_nonstatic();
+				_make_nonstatic();
 			}
 			return data;
 		}
@@ -966,7 +1084,11 @@ namespace cutecat {
 
 	private:
 
-		void make_nonstatic() {
+
+		// ---------------------------------------------------------------------
+		/** TODO */
+		// ---------------------------------------------------------------------
+		void _make_nonstatic() {
 			assert(flags & FLAG_STATIC);
 
 			const T* const src = data;
@@ -983,6 +1105,102 @@ namespace cutecat {
 			ext.capacity = len + 1;
 			data = new char[ext.capacity];
 			::strcpy(data, src);
+		}
+
+
+
+		// ---------------------------------------------------------------------
+		/** TODO */
+		// ---------------------------------------------------------------------
+		template<bool expect_overlapping>
+		void _sub(T*& dest_begin_ref, T*& dest_end_ref, const T* src_begin, const T* src_end)	{
+			// dereference parameters to keep the compiler from doing that on every access
+			T* dest_begin = dest_begin_ref;
+			T* dest_end = dest_end_ref;
+
+			// static strings should have been made non-static upon obtaining a slice
+			assert(!(flags & FLAG_STATIC));
+
+			// ranges must be well-defined 
+			assert(dest_begin <= dest_end && data <= dest_begin && dest_end <= data + length());
+			assert(src_begin <= src_end);
+
+			// TODO: handle overlapping slices
+			const std::size_t my_len = static_cast<std::size_t>(dest_begin - dest_end);
+			const std::size_t other_len = static_cast<std::size_t>(src_begin - src_end);
+
+			if(my_len == other_len) {
+				detail::fast_copy<expect_overlapping>(dest_begin, src_begin, my_len);
+				return;
+			}
+
+			const std::size_t full_len = length();
+			const std::ptrdiff_t diff = other_len - my_len;
+
+			const std::size_t dest_ofs_end = full_len - static_cast<std::size_t>(dest_end - data);
+
+			if(my_len < other_len) {
+				// the slice to be assigned is longer than the current piece
+				const std::size_t dest_ofs = static_cast<std::size_t>(dest_begin - data);
+				const std::size_t new_len = full_len + diff;
+
+				if (((flags & FLAG_INTERN) && new_len > MAX_INTERNAL_LEN) || new_len >= ext.capacity) {
+
+					// allocate heap
+					// TODO: try a realloc if possible!
+					ext.capacity = new_len + 1; // todo: more capacity
+					T* const new_data = new char[ext.capacity];
+
+					T* cursor = new_data;
+					detail::fast_copy<false>(cursor, data, dest_ofs);
+
+					cursor += dest_ofs;
+					detail::fast_copy<false>(cursor, src_begin, other_len);
+
+					cursor += other_len;
+					detail::fast_copy<false>(cursor, dest_end, dest_ofs_end);
+
+					// ensure zero-termination
+					*cursor = 0;
+
+					if (flags & FLAG_INTERN) {
+						flags &= ~FLAG_INTERN;
+					}
+					else {
+						delete[] data;
+					}
+
+					ext.len = new_len;
+
+					data = new_data;
+					dest_begin = data + dest_ofs;
+
+					// update caller's refs
+					dest_begin_ref = dest_begin;
+					dest_end_ref = dest_begin + other_len;
+					return;
+				}
+				// else: fall through	
+			}
+
+			// the slice to be assigned is shorter than the current piece OR
+			// it is longer, but there is enough storage. Therefore, we
+			// can leave the first part of the string as is and move the
+			// last part to its final position and then finally insert the
+			// new slice.
+			detail::fast_copy<expect_overlapping>(dest_begin + other_len, dest_end, dest_ofs_end);
+			detail::fast_copy<expect_overlapping>(dest_begin, src_begin, other_len);
+
+			// update caller's refs
+			dest_end_ref = dest_begin + other_len;
+			// dest_begin remains untouched
+
+			if (flags & FLAG_INTERN) {
+				intern.len += diff;
+			}
+			else {
+				ext.len += diff;
+			}
 		}
 	};
 
@@ -1035,12 +1253,9 @@ namespace cutecat {
 	 */
 	//----------------------------------------------------------------------------------------
 	template<typename TLeft, typename TRight>
-		typename std::enable_if<
-			std::is_same<
-				typename std::remove_const<TLeft>::type,
-				typename std::remove_const<TRight>::type
-			>::value, 
-	bool>::type 
+	typename detail::enable_if_same_or_const<
+		TLeft, TRight, bool
+	>::type 
 	operator==(const BaseString<TLeft>& a, const BaseStringSlice<TRight>& b)
 	{
 		return b == a;
@@ -1048,12 +1263,9 @@ namespace cutecat {
 
 
 	template<typename TLeft, typename TRight>
-		typename std::enable_if<
-			std::is_same<
-				typename std::remove_const<TLeft>::type,
-				typename std::remove_const<TRight>::type
-			>::value, 
-	bool>::type 
+	typename detail::enable_if_same_or_const<
+		TLeft, TRight, bool
+	>::type 
 	operator!=(const BaseString<TLeft>& a, const BaseStringSlice<TRight>& b)
 	{
 		return b != a;
@@ -1061,12 +1273,9 @@ namespace cutecat {
 
 
 	template<typename TLeft, typename TRight>
-		typename std::enable_if<
-			std::is_same<
-				typename std::remove_const<TLeft>::type,
-				typename std::remove_const<TRight>::type
-			>::value, 
-	bool>::type 
+	typename detail::enable_if_same_or_const<
+		TLeft, TRight, bool
+	>::type 
 	operator==(const BaseStringSlice<TLeft>& b, const BaseString<TRight>& a)
 	{
 		const std::size_t len = a.length();
@@ -1078,12 +1287,9 @@ namespace cutecat {
 
 
 	template<typename TLeft, typename TRight>
-		typename std::enable_if<
-			std::is_same<
-				typename std::remove_const<TLeft>::type,
-				typename std::remove_const<TRight>::type
-			>::value, 
-	bool>::type 
+	typename detail::enable_if_same_or_const<
+		TLeft, TRight, bool
+	>::type 
 	operator!=(const BaseStringSlice<TLeft>& b, const BaseString<TRight>& a)
 	{
 		const std::size_t len = a.length();
@@ -1102,12 +1308,9 @@ namespace cutecat {
 	 */
 	//----------------------------------------------------------------------------------------
 	template<typename TLeft, typename TRight>
-		typename std::enable_if<
-			std::is_same<
-				typename std::remove_const<TLeft>::type,
-				typename std::remove_const<TRight>::type
-			>::value, 
-	bool>::type 
+	typename detail::enable_if_same_or_const<
+		TLeft, TRight, bool
+	>::type 
 	operator==(const BaseStringSlice<TLeft>& a, const BaseStringSlice<TRight>& b)
 	{
 		const std::size_t len = a.length();
@@ -1126,12 +1329,9 @@ namespace cutecat {
 	 */
 	//----------------------------------------------------------------------------------------
 	template<typename TLeft, typename TRight>
-		typename std::enable_if<
-			std::is_same<
-				typename std::remove_const<TLeft>::type,
-				typename std::remove_const<TRight>::type
-			>::value, 
-	bool>::type 
+	typename detail::enable_if_same_or_const<
+		TLeft, TRight, bool
+	>::type 
 	operator!=(const BaseStringSlice<TLeft>& a, const BaseStringSlice<TRight>& b)
 	{
 		const std::size_t len = a.length();

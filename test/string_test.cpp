@@ -22,6 +22,7 @@ static const char* lorem_ipsum = "Lorem ipsum dolor sit amet, consetetur sadipsc
 TEST (StringTest, TestEmptyString) { 
 	cutecat::BaseString<char> str;
 
+
 	ASSERT_EQ(0, str.length());
 	ASSERT_NE(nullptr, str.get_array());
 
@@ -220,7 +221,7 @@ TEST (StringTest, TestStringComparison) {
 	slice = str.get(1, 16);
 	ASSERT_NE(slice, slice2);
 
-	// check comparison against prefixes to make sure the slice boundary is honoured
+	// check comparison against prefixes to make sure the slice boundary is honored
 	cutecat::BaseString<char> strPrefix = cutecat::FromStatic("Lorem");
 	slice = str.get(0, 5);
 	ASSERT_EQ(slice, strPrefix);
@@ -238,6 +239,36 @@ TEST (StringTest, TestStringComparison) {
 	ASSERT_EQ(sliceFull2, str2);
 	ASSERT_EQ(str2, sliceFull);
 	ASSERT_EQ(sliceFull, str);
+}
+
+
+//----------------------------------------------------------------------------------------
+TEST (StringTest, TestStringEmptySlicing) { 
+	const char* c = lorem_ipsum;
+
+	cutecat::BaseString<char> str1 = cutecat::FromRaw(c);
+	cutecat::BaseString<char> str2 = cutecat::FromStatic("foo");
+	cutecat::BaseString<char> str3 = cutecat::FromStatic("foobar");
+
+	const std::size_t len = str1.length();
+
+	ASSERT_EQ(str1.get(0,0), str2.get(0,0));
+	ASSERT_EQ(str1.set(0,0), str2.get(0,0));
+
+	// assign empty slice of different string
+	str1.set(0,0) = str2.get(0,0);
+	str1.set(0,0) = str2.get(2,2);
+
+	// assign empty slice of same string
+	str1.set(0,0) = str1.get(0,0);
+	str1.set(0,0) = str1.get(15,15);
+
+	ASSERT_EQ(str1.get(0,0), str2.get(0,0));
+	ASSERT_EQ(str1.set(0,0), str2.get(0,0));
+	ASSERT_EQ(len, str1.length());
+	ASSERT_TRUE(!::strcmp(str1.get_array(),c));
+	ASSERT_TRUE(!::strcmp(str1.get(0,0).begin(),c));
+	ASSERT_TRUE(!::strcmp(str1.set(0,0).begin(),c));
 }
 
 /* vi: set shiftwidth=4 tabstop=4: */ 
