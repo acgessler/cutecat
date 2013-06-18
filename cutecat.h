@@ -522,10 +522,10 @@ namespace cutecat {
 		BaseStringSlice<T>& operator=(const BaseString<T>& other)
 		{
 			if(other == src) {
-				src._sub<true>(diff, data, data_end, other.begin(), other.end());
+				src._sub<true>(data, data_end, other.begin(), other.end());
 			}
 			else {
-				src._sub<false>(diff, data, data_end, other.begin(), other.end());
+				src._sub<false>(data, data_end, other.begin(), other.end());
 			}
 			return *this;
 		}
@@ -697,6 +697,7 @@ namespace cutecat {
 
 
 		T* data;
+		mutable unsigned int flags;
 
 		union {
 			struct external_storage_block {
@@ -727,9 +728,6 @@ namespace cutecat {
 			static_assert( (1 << (sizeof(T)*8)) > MAX_INTERNAL_LEN, "TODO");
 
 		} PACK_STRUCT;
-
-
-		char flags;
 	
 	public:
 		
@@ -755,14 +753,15 @@ namespace cutecat {
 			, ext(other.ext)
 		{
 			if (flags & FLAG_INTERN) {
-				data = &intern.buff;
+				data = intern.buff;
+				return;
 			}
-			else if ((flags & FLAG_STATIC) == 0) {
+			else if (flags & FLAG_STATIC) {
 				return;
 			}
 
-			data = new char[other.ext.capacity];
-			::strcpy(data, other.data); // TODO
+			data = new T[other.ext.capacity];
+			::strcpy(data, other.data); 
 		}
 
 
@@ -781,7 +780,7 @@ namespace cutecat {
 		// ---------------------------------------------------------------------
 		/** TODO */
 		// ---------------------------------------------------------------------
-		BaseString(detail::StaticBaseString<T>& other)
+		BaseString(const detail::StaticBaseString<T>& other)
 			: data(const_cast<T*>(other.data))
 			, flags(FLAG_STATIC)
 		{
@@ -793,7 +792,7 @@ namespace cutecat {
 		/** TODO */
 		// ---------------------------------------------------------------------
 		template<std::size_t n>
-		BaseString(detail::StaticBaseStringWithKnownLength<T,n>& other)
+		BaseString(const detail::StaticBaseStringWithKnownLength<T,n>& other)
 			: data(const_cast<T*>(other.data))
 			, flags(FLAG_STATIC)
 		{
@@ -804,7 +803,7 @@ namespace cutecat {
 		// ---------------------------------------------------------------------
 		/** TODO */
 		// ---------------------------------------------------------------------
-		BaseString(detail::DynamicBaseString<T>& other)
+		BaseString(const detail::DynamicBaseString<T>& other)
 			: flags()
 		{
 			const size_t len = other.len;
@@ -928,7 +927,7 @@ namespace cutecat {
 				data = intern.buff;
 				intern = other.intern;
 				flags = FLAG_INTERN;
-				return;
+				return *this;
 			}
 
 			ext = other.ext;
@@ -993,28 +992,64 @@ namespace cutecat {
 		// ---------------------------------------------------------------------
 		/** TODO */
 		// ------------------------------- --------------------------------------
-		BaseStringSlice<T> set(std::size_t begin, std::size_t end) {
-			assert(begin <= end && end <= length());
+		BaseStringSlice<T> set(std::size_t begini, std::size_t endi) {
+			assert(begini <= endi && endi <= length());
 
 			if (flags & FLAG_STATIC) {
 				// copy-on-write
 				_make_nonstatic();
 			}
-			return BaseStringSlice<T>(data + begin, data + end, *this);
+			return BaseStringSlice<T>(data + begini, data + endi, *this);
 		}
 
 
 		// ---------------------------------------------------------------------
 		/** TODO */
 		// ---------------------------------------------------------------------
-		BaseStringSlice<const T> get(std::size_t begin, std::size_t end) const {
-			return BaseStringSlice<const T>(data + begin, data + end);
+		BaseStringSlice<const T> get(std::size_t begini, std::size_t endi) const {
+			return BaseStringSlice<const T>(data + begini, data + endi);
 		} 
 
 
-		BaseStringSlice<const T> operator()(std::size_t begin, std::size_t end) const {
-			return BaseStringSlice<const T>(data + begin, data + end);
+		BaseStringSlice<const T> operator()(std::size_t begini, std::size_t endi) const {
+			return BaseStringSlice<const T>(data + begini, data + endi);
 		} 
+
+
+	public:
+
+		// std::iterator_traits<T> supplies the necessary iterator meta info for
+		// raw pointers automatically
+
+		// ---------------------------------------------------------------------
+		/** TODO */
+		// ---------------------------------------------------------------------
+		T* begin() {
+			return data;
+		}
+
+
+		// ---------------------------------------------------------------------
+		/** TODO */
+		// ---------------------------------------------------------------------
+		T* end() {
+			return data + length();
+		}
+
+
+		// ---------------------------------------------------------------------
+		/** TODO */
+		// ---------------------------------------------------------------------
+		const T* begin() const {
+			return data;
+		}
+
+		// ---------------------------------------------------------------------
+		/** TODO */
+		// ---------------------------------------------------------------------
+		const T* end() const {
+			return data + length();
+		}
 
 	public:
 
@@ -1126,8 +1161,8 @@ namespace cutecat {
 			assert(src_begin <= src_end);
 
 			// TODO: handle overlapping slices
-			const std::size_t my_len = static_cast<std::size_t>(dest_begin - dest_end);
-			const std::size_t other_len = static_cast<std::size_t>(src_begin - src_end);
+			const std::size_t my_len = static_cast<std::size_t>(dest_end - dest_begin);
+			const std::size_t other_len = static_cast<std::size_t>(src_end - src_begin);
 
 			if(my_len == other_len) {
 				detail::fast_copy<expect_overlapping>(dest_begin, src_begin, my_len);
@@ -1146,10 +1181,13 @@ namespace cutecat {
 
 				if (((flags & FLAG_INTERN) && new_len > MAX_INTERNAL_LEN) || new_len >= ext.capacity) {
 
+					// note: until all data copying is complete, we cannot access ext
+					// since it may overlap with the internalized string.
+
 					// allocate heap
 					// TODO: try a realloc if possible!
-					ext.capacity = new_len + 1; // todo: more capacity
-					T* const new_data = new char[ext.capacity];
+					const std::size_t cap = new_len + 1;  // todo: more capacity
+					T* const new_data = new char[cap];
 
 					T* cursor = new_data;
 					detail::fast_copy<false>(cursor, data, dest_ofs);
@@ -1161,7 +1199,7 @@ namespace cutecat {
 					detail::fast_copy<false>(cursor, dest_end, dest_ofs_end);
 
 					// ensure zero-termination
-					*cursor = 0;
+					cursor[dest_ofs_end] = 0;
 
 					if (flags & FLAG_INTERN) {
 						flags &= ~FLAG_INTERN;
@@ -1170,6 +1208,7 @@ namespace cutecat {
 						delete[] data;
 					}
 
+					ext.capacity = cap; 
 					ext.len = new_len;
 
 					data = new_data;
@@ -1190,6 +1229,9 @@ namespace cutecat {
 			// new slice.
 			detail::fast_copy<expect_overlapping>(dest_begin + other_len, dest_end, dest_ofs_end);
 			detail::fast_copy<expect_overlapping>(dest_begin, src_begin, other_len);
+
+			// ensure zero-termination
+			dest_begin[other_len + dest_ofs_end] = 0;
 
 			// update caller's refs
 			dest_end_ref = dest_begin + other_len;

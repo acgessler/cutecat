@@ -271,5 +271,96 @@ TEST (StringTest, TestStringEmptySlicing) {
 	ASSERT_TRUE(!::strcmp(str1.set(0,0).begin(),c));
 }
 
+
+//----------------------------------------------------------------------------------------
+TEST (StringTest, TestStringSelfAssignment) { 
+	// internalized
+	cutecat::BaseString<char> str1 = cutecat::FromRaw("foo");
+	str1 = str1;
+
+	// static
+	cutecat::BaseString<char> str2 = cutecat::FromStatic(lorem_ipsum);
+	str2 = str2;
+
+	// heap
+	cutecat::BaseString<char> str3 = cutecat::FromRaw(lorem_ipsum);
+	str3 = str3;
+
+	ASSERT_EQ(::strlen(lorem_ipsum),str2.length());
+	ASSERT_EQ(::strlen(lorem_ipsum),str3.length());
+	ASSERT_EQ(3,str1.length());
+}
+
+//----------------------------------------------------------------------------------------
+#define CompareAndCheckLengthConsistency(str,expected) \
+{ \
+	ASSERT_EQ(str, cutecat::BaseString<char>(cutecat::FromRaw(expected))); \
+	ASSERT_TRUE(!strcmp((str).get_array(),expected)); \
+	ASSERT_TRUE(::strlen((str).get_array()) == (str).length()); \
+}
+
+
+//----------------------------------------------------------------------------------------
+TEST (StringTest, TestStringSlicing) { 
+	const char* c = lorem_ipsum;
+
+	cutecat::BaseString<char> str1 = cutecat::FromRaw(c);
+
+	// test basic slice access
+	str1.set(1,5)[0] = 'a';
+	ASSERT_EQ(str1.get(1), 'a');
+
+	cutecat::BaseStringSlice<char> s = str1.set(1,5);
+	for( char* c = s.begin(); c != s.end(); ++c) {
+		*c = 'a';
+	} 
+
+	// equality of different slices
+	ASSERT_EQ(str1.get(1,5), s);
+	ASSERT_EQ(s, str1.get(1,5));
+	ASSERT_EQ(str1.set(1,5), str1.get(1,5));
+
+	//
+	cutecat::BaseString<char> str2 = cutecat::FromStatic("abcdef");
+	cutecat::BaseString<char> str3 = cutecat::FromStatic("aaaaaa");
+
+	// insert str3 at the beginning of str2 
+	str2.set(0,0) = str3;
+	CompareAndCheckLengthConsistency(str3,"aaaaaa");
+	CompareAndCheckLengthConsistency(str2,"aaaaaaabcdef");
+
+	// insert str2 at the beginning of str3
+	str3.set(0,0) = str2;
+	CompareAndCheckLengthConsistency(str2,"aaaaaaabcdef");
+	CompareAndCheckLengthConsistency(str3,"aaaaaaabcdefaaaaaa");
+
+	// extract middle part of str3 and assign to str2 using normal assignment
+	str2.set(0,str2.length()) = str3.get(6,12);
+	//str2 = str3.get(6,12);
+	CompareAndCheckLengthConsistency(str2,"abcdef");
+	CompareAndCheckLengthConsistency(str3,"aaaaaaabcdefaaaaaa");
+
+	// duplicate str2 by appending to the end
+	str2.set(str2.length(),str2.length()) = str2;
+	CompareAndCheckLengthConsistency(str2,"abcdefabcdef");
+
+	// do that again, but this time insert at the second last position
+	str2.set(str2.length() - 1,str2.length() - 1) = str2;
+	CompareAndCheckLengthConsistency(str2,"abcdefabcdeabcdefabcdeff");
+
+	// do that again, but this time replace everything between the first and last character
+	str2.set(1,str2.length() - 1) = str2;
+	CompareAndCheckLengthConsistency(str2,"aabcdefabcdeabcdefabcdefff");
+
+	// do that again, but this time set everything between the first and last character nil
+	str2.set(1,str2.length() - 1) = cutecat::FromStatic("");
+	CompareAndCheckLengthConsistency(str2,"af");
+
+	// extract middle part of str3 and assign to str2 using slice assignment
+	str2.set(0,str2.length()) = str3.get(6,12);
+	CompareAndCheckLengthConsistency(str2,"abcdef");
+	CompareAndCheckLengthConsistency(str3,"aaaaaaabcdefaaaaaa");
+}
+
 /* vi: set shiftwidth=4 tabstop=4: */ 
 
