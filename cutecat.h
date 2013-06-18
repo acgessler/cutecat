@@ -32,224 +32,16 @@ For more information, see https://github.com/acgessler/cutecat meow
 Usage: TODO
 
 */
+
 #pragma intrinsic(memcpy)
+#define CUTECAT_HAS_DECLTYPE
+
 #ifndef INCLUDED_CUTECAT_H
 #define INCLUDED_CUTECAT_H
 
 namespace cutecat {
 
-#if 0
-	//----------------------------------------------------------------------------------------
-	/** Gets the length of a string.
-	 *
-	 *  Length is in characters, not counting the terminating zero sentinel value.
-	 *  @note TODO unicode
-	 *  @param s[in] String instance */
-	//----------------------------------------------------------------------------------------
-	template <typename T>
-	inline size_t Length(const BaseString<T>& s)
-	{
-		return s.length();
-	}
-
-
-	//----------------------------------------------------------------------------------------
-	/** Checks if a string is empty.
-	 *
-	 *  A string s is empty iff Length(s) == 0.
-	 *  @param s[in] String instance */
-	//----------------------------------------------------------------------------------------
-	template <typename T>
-	inline bool Empty(const BaseString<T>& s)
-	{
-		return s.length() == 0;
-	}
-	
-
-	//----------------------------------------------------------------------------------------
-	/** 
-	 *
-	 *
-	 *  @code
-	 *
-	 *  constexpr String f = "{0} and {1} go well together and 15+1 is {2:x}";
-	 *  constexpr String input = "foo and bar go   well together and 15+1 is 0x10";
-	 *
-	 *  String s0, s1;
-	 *  int i2;
-	 *
-	 *  const bool b = Parse(f, cutecat::ignoreSpace, s0, s1, 2);
-	 *  // value of b: true
-	 *
-	 *  @endcode
-	 */ 
-	//----------------------------------------------------------------------------------------
-	template <typename T, typename TFormatArgumentStaticType>
- 	inline bool Parse(const BaseString<T>& base, const TFormatArgumentStaticType& args)
-	{
-		// TODO meow
-		return false;
-	}
-
-	
-
-	//----------------------------------------------------------------------------------------
-	/** 
-	 *
-	 *
-	 *  @code
-	 *
-	 *  constexpr String f = "{0} and {1} go well together and 15+1 is 0x{2:x}";
-	 *
-	 *  String filled = Format(f, "foo", "bar", 16);
-	 *  // value of filled: "foo and bar go well together and 15+1 is 0x10"
-	 *
-	 *  @endcode
-	 */ 
-	//----------------------------------------------------------------------------------------
-	template <typename T, typename TFormatArgumentStaticType>
- 	inline StringExpression<T> Format(const BaseString<T>& base, const TFormatArgumentStaticType& args);
-
-	
-	//----------------------------------------------------------------------------------------
-	/** Concatenates two string expressions. 
-	 *  TODO
-	 */
-	//----------------------------------------------------------------------------------------
-	template <typename TLeft, typename TRight>
-	inline StaticStringExpression Cat(const TLeft& a, const TRight& b, 
-		typename std::enable_if<
-			detail::traits :: IsStringExpression<TLeft >::value &&
-			detail::traits :: IsStringExpression<TRight>::value
-		>::type* p = nullptr);
-
-	template <typename T Args...>
-	inline StaticStringExpression Cat();
-
-
-	//----------------------------------------------------------------------------------------
-	/** Trim a string from both sides by removing whitespace.
-	 *
-	 *  By default, only space characters, tab characters, backspaces and newlines (ASCII) are removed
-	 *  TODO
-	 */
-	//----------------------------------------------------------------------------------------
-	template <typename T>
-	inline bool Trim(BaseString<T>& d)
-	{
-		const char* const sz = d.c_str(), *cur = sz;
-
-		size_t left = 0u;
-		while(*cur != 0) {
-			if (*cur != ' ' && *cur != '\t' && *cur != '\n' && *cur != '\r') {
-				break;
-			}
-			++cur;
-			++left;
-		}
-
-		const std::size_t len = d.length();
-		const char* const end = sz + len, *back_cur = end;
-
-		size_t right = 0u;
-		while(--back_cur > cur) {
-			if (*cur != ' ' && *cur != '\t' && *cur != '\n' && *cur != '\r') {
-				break;
-			}
-			++right;
-		}
-
-		assert(back_cur >= cur);
-		if(left > 0 || right > 0) {
-			d = d[Slice(left,len-right)]; 
-			return true;
-		}
-		return false;
-	}
-
-
-	//----------------------------------------------------------------------------------------
-	/** Trim a string from both sides by removing whitespace.
-	 *  By default, this means only spaces are removed.
-	 *  TODO
-	 */
-	//----------------------------------------------------------------------------------------
-	template <typename T, TLambda>
-	inline bool Trim(BaseString<T>& d, const TLambda& predicate, 
-		// avoid use of std::function because it may be slower
-#if CUTECAT_HAS_DECLTYPE
-		typename std::enable_if<
-			typename std::is_convertible<
-				detail::traits :: function_traits<decltype(lambda)>::result_type, 
-				bool
-			>::value
-		>::type* p = nullptr
-#endif 
-	) 
-	{
-		const char* const sz = d.c_str(), *cur = sz;
-
-		size_t left = 0u;
-		while(*cur != 0) {
-			if (!predicate(*cur)) {
-				break;
-			}
-			++cur;
-			++left;
-		}
-
-		const std::size_t len = d.length();
-		const char* const end = sz + len, *back_cur = end;
-
-		size_t right = 0u;
-		while(--back_cur > cur) {
-			if (!predicate(*back_cur)) {
-				break;
-			}
-			++right;
-		}
-		
-		assert(back_cur >= cur);
-		if(left > 0 || right > 0) {
-			d = d[Slice(left,len-right)]; 
-			return true;
-		}
-		return false;
-	}
-
-
-	void TrimLeft(String& d);
-	void TrimRight(String& d);
-
-
-	//----------------------------------------------------------------------------------------
-	/** Substring search
-	 *
-	 *  TODO
-	 */
-	//----------------------------------------------------------------------------------------
-	void ForEachOccurence(String& d, const String& needle, std::function<void ()(StringSlice&)>)
-	{
-		// IDEA: use KMP algorithm for large values of |d| * |needle|
-	}
-
-
-	void ForEachOccurence(const String& d, const String& needle, std::function<void ()(const StringSlice&)>);
-
-	// String splitting
-	void Split(char split, const String& d, TContainer<String>& outp);
-	void Split(const String& d, const String& d, TContainer<String>& outp);
-	void Split(char split, const String& d, TContainer<StringSlice>& outp);
-	void Split(const String& d, const String& d, TContainer<StringSlice>& outp);
-
-	// String join
-	StringExpression Join(char character, TContainer<ConvertibleToString>& inp);
-	StringExpression Join(const String& d, TContainer<ConvertibleToString>& inp);
-#endif // 0
-
-
 	template<typename T> class BaseString;
-
 
 	namespace detail {
 
@@ -676,7 +468,10 @@ namespace cutecat {
 	 *  TODO
 	 */
 	//----------------------------------------------------------------------------------------
-	template<typename T>
+	template<typename T /*, planned
+		typename TAllocationHandler	= detail::StandardAllocationHandler,
+		typename TGrowPolicy		= detail::ExponentialGrowthPolicy,
+	*/ > 
 	class BaseString 
 	{
 	private:
@@ -720,7 +515,6 @@ namespace cutecat {
 				T buff[INTERNAL_BUFF_SIZE];
 				T len; // TODO: make unsg and move to front
 			} PACK_STRUCT intern;
-
 
 
 			static_assert(sizeof(external_storage_block) == sizeof(internalized_storage_block), "TODO");
@@ -845,6 +639,10 @@ namespace cutecat {
 
 	public:
 
+
+		// ---------------------------------------------------------------------
+		/** TODO */
+		// ---------------------------------------------------------------------
 		~BaseString()
 		{
 			if ((flags & (FLAG_STATIC | FLAG_INTERN)) == 0) {
@@ -1283,8 +1081,7 @@ namespace cutecat {
 	template<typename T>
 	inline bool operator!=(const BaseString<T>& a, const BaseString<T>& b)
 	{
-		// do data comparison since getting the length takes extra bit fiddling
-		return !!::strcmp(a.get_array(), b.get_array());
+		return !(a == b);
 	}
 
 
@@ -1310,7 +1107,7 @@ namespace cutecat {
 	>::type 
 	operator!=(const BaseString<TLeft>& a, const BaseStringSlice<TRight>& b)
 	{
-		return b != a;
+		return !(a == b);
 	}
 
 
@@ -1334,11 +1131,7 @@ namespace cutecat {
 	>::type 
 	operator!=(const BaseStringSlice<TLeft>& b, const BaseString<TRight>& a)
 	{
-		const std::size_t len = a.length();
-		if(len != b.length()) {
-			return true;
-		}
-		return !!::memcmp(a.get_array(), b.begin(), len);
+		return !(a == b);
 	}
 
 
@@ -1376,14 +1169,219 @@ namespace cutecat {
 	>::type 
 	operator!=(const BaseStringSlice<TLeft>& a, const BaseStringSlice<TRight>& b)
 	{
-		const std::size_t len = a.length();
-		if(len != b.length()) {
-			return true;
-		}
-		return !!::memcmp(a.begin(), b.begin(), len);
+		return !(a == b);
+	}
+
+
+
+
+	//----------------------------------------------------------------------------------------
+	/** Gets the length of a string.
+	 *
+	 *  Length is in characters, not counting the terminating zero sentinel value.
+	 *  @note TODO unicode
+	 *  @param s[in] String instance */
+	//----------------------------------------------------------------------------------------
+	template <typename T>
+	inline size_t Length(const BaseString<T>& s)
+	{
+		return s.length();
+	}
+
+
+	//----------------------------------------------------------------------------------------
+	/** Checks if a string is empty.
+	 *
+	 *  A string s is empty iff Length(s) == 0.
+	 *  @param s[in] String instance */
+	//----------------------------------------------------------------------------------------
+	template <typename T>
+	inline bool Empty(const BaseString<T>& s)
+	{
+		return s.length() == 0;
 	}
 	
 
+	//----------------------------------------------------------------------------------------
+	/** 
+	 *
+	 *
+	 *  @code
+	 *
+	 *  constexpr String f = "{0} and {1} go well together and 15+1 is {2:x}";
+	 *  constexpr String input = "foo and bar go   well together and 15+1 is 0x10";
+	 *
+	 *  String s0, s1;
+	 *  int i2;
+	 *
+	 *  const bool b = Parse(f, cutecat::ignoreSpace, s0, s1, 2);
+	 *  // value of b: true
+	 *
+	 *  @endcode
+	 */ 
+	//----------------------------------------------------------------------------------------
+	template <typename T, typename TFormatArgumentStaticType>
+ 	inline bool Parse(const BaseString<T>& base, const TFormatArgumentStaticType& args);
+
+#if 0
+
+	//----------------------------------------------------------------------------------------
+	/** 
+	 *
+	 *
+	 *  @code
+	 *
+	 *  constexpr String f = "{0} and {1} go well together and 15+1 is 0x{2:x}";
+	 *
+	 *  String filled = Format(f, "foo", "bar", 16);
+	 *  // value of filled: "foo and bar go well together and 15+1 is 0x10"
+	 *
+	 *  @endcode
+	 */ 
+	//----------------------------------------------------------------------------------------
+	template <typename T, typename TFormatArgumentStaticType>
+ 	inline StringExpression<T> Format(const BaseString<T>& base, const TFormatArgumentStaticType& args);
+
+	
+	//----------------------------------------------------------------------------------------
+	/** Concatenates two string expressions. 
+	 *  TODO
+	 */
+	//----------------------------------------------------------------------------------------
+	template <typename TLeft, typename TRight>
+	inline StaticStringExpression Cat(const TLeft& a, const TRight& b, 
+		typename std::enable_if<
+			detail::traits :: IsStringExpression<TLeft >::value &&
+			detail::traits :: IsStringExpression<TRight>::value
+		>::type* p = nullptr);
+
+	template <typename T Args...>
+	inline StaticStringExpression Cat();
+#endif
+
+	//----------------------------------------------------------------------------------------
+	/** Trim a string from both sides by removing whitespace.
+	 *
+	 *  By default, only space characters, tab characters, backspaces and newlines (ASCII) are removed
+	 *  TODO
+	 */
+	//----------------------------------------------------------------------------------------
+	template <typename T>
+	inline bool Trim(BaseString<T>& d)
+	{
+		const char* const sz = d.c_str(), *cur = sz;
+
+		size_t left = 0u;
+		while(*cur != 0) {
+			if (*cur != ' ' && *cur != '\t' && *cur != '\n' && *cur != '\r') {
+				break;
+			}
+			++cur;
+			++left;
+		}
+
+		const std::size_t len = d.length();
+		const char* const end = sz + len, *back_cur = end;
+
+		size_t right = 0u;
+		while(--back_cur > cur) {
+			if (*cur != ' ' && *cur != '\t' && *cur != '\n' && *cur != '\r') {
+				break;
+			}
+			++right;
+		}
+
+		assert(back_cur >= cur);
+		if(left > 0 || right > 0) {
+			d = d[Slice(left,len-right)]; 
+			return true;
+		}
+		return false;
+	}
+
+
+	//----------------------------------------------------------------------------------------
+	/** Trim a string from both sides by removing whitespace.
+	 *  By default, this means only spaces are removed.
+	 *  TODO
+	 */
+	//----------------------------------------------------------------------------------------
+	template <typename T, typename TLambda>
+	inline bool Trim(BaseString<T>& d, const TLambda& predicate
+		// avoid use of std::function because it may be slower
+#ifdef CUTECAT_HAS_DECLTYPE
+		, typename std::enable_if<
+			std::is_convertible<
+				typename std::result_of<TLambda>::type, 
+				bool
+			>::value
+		>::type* p = nullptr
+#endif 
+	) 
+	{
+		const char* const sz = d.c_str(), *cur = sz;
+
+		size_t left = 0u;
+		while(*cur != 0) {
+			if (!predicate(*cur)) {
+				break;
+			}
+			++cur;
+			++left;
+		}
+
+		const std::size_t len = d.length();
+		const char* const end = sz + len, *back_cur = end;
+
+		size_t right = 0u;
+		while(--back_cur > cur) {
+			if (!predicate(*back_cur)) {
+				break;
+			}
+			++right;
+		}
+		
+		assert(back_cur >= cur);
+		if(left > 0 || right > 0) {
+			d = d[Slice(left,len-right)]; 
+			return true;
+		}
+		return false;
+	}
+
+
+	//void TrimLeft(String& d);
+	//void TrimRight(String& d);
+
+#if 0
+	//----------------------------------------------------------------------------------------
+	/** Substring search
+	 *
+	 *  TODO
+	 */
+	//----------------------------------------------------------------------------------------
+	void ForEachOccurence(String& d, const String& needle, std::function<void ()(StringSlice&)>)
+	{
+		// IDEA: use KMP algorithm for large values of |d| * |needle|
+	}
+
+
+	void ForEachOccurence(const String& d, const String& needle, std::function<void ()(const StringSlice&)>);
+
+	// String splitting
+	void Split(char split, const String& d, TContainer<String>& outp);
+	void Split(const String& d, const String& d, TContainer<String>& outp);
+	void Split(char split, const String& d, TContainer<StringSlice>& outp);
+	void Split(const String& d, const String& d, TContainer<StringSlice>& outp);
+
+	// String join
+	StringExpression Join(char character, TContainer<ConvertibleToString>& inp);
+	StringExpression Join(const String& d, TContainer<ConvertibleToString>& inp);
+#endif // 0
+
+	
+	typedef BaseString<char> String;
+	 
 } // namespace cutecat
 
 
