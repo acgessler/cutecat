@@ -324,6 +324,15 @@ namespace cutecat {
 
 	public:
 
+		// ---------------------------------------------------------------------
+		/** TODO */
+		// ---------------------------------------------------------------------
+		bool is_slice_of(const BaseString<T>& other) const {
+			return src == other; // TODO: check for stale data etc
+		}
+
+	public:
+
 		// std::iterator_traits<T> supplies the necessary iterator meta info for
 		// raw pointers automatically
 
@@ -415,6 +424,16 @@ namespace cutecat {
 		// ---------------------------------------------------------------------
 		const T* end() const {
 			return data_end;
+		}
+
+	public:
+
+		// ---------------------------------------------------------------------
+		/** TODO */
+		// ---------------------------------------------------------------------
+		bool is_slice_of(const BaseString<T>& other) const {
+			// TODO: check for actual string object
+			return data >= other.begin() && data_end <= other.end(); 
 		}
 
 	public:
@@ -569,7 +588,7 @@ namespace cutecat {
 		{
 			other.data = nullptr;
 		}
-
+		
 
 		// ---------------------------------------------------------------------
 		/** TODO */
@@ -618,7 +637,7 @@ namespace cutecat {
 		// ---------------------------------------------------------------------
 		/** TODO */
 		// ---------------------------------------------------------------------
-		explicit BaseString(const BaseStringSlice<T>& slice)
+		explicit BaseString(const BaseStringSlice<const T>& slice)
 			: flags()
 		{
 			const size_t len = slice.length();
@@ -656,7 +675,7 @@ namespace cutecat {
 		// ---------------------------------------------------------------------
 		/** TODO */
 		// ---------------------------------------------------------------------
-		BaseString& operator= (const BaseStringSlice<T>& other)
+		BaseString& operator= (const BaseStringSlice<const T>& other)
 		{
 			const size_t len = other.length();
 			if(len <= MAX_INTERNAL_LEN) {
@@ -685,7 +704,13 @@ namespace cutecat {
 				ext.len = len;
 				flags = 0;
 			}
-			::strcpy(data, other.begin());
+
+			if(other.is_slice_of(*this)) {
+				detail::fast_copy<true>(data, other.begin(), len + 1);
+			}
+			else {
+				detail::fast_copy<false>(data, other.begin(), len + 1);
+			}
 			return *this;
 		}
 
@@ -772,7 +797,7 @@ namespace cutecat {
 				data = intern.buff;
 				intern = other.intern;
 				flags = FLAG_INTERN;
-				return;
+				return *this;
 			}
 
 			delete[] data;
@@ -1259,21 +1284,50 @@ namespace cutecat {
 	inline StaticStringExpression Cat();
 #endif
 
+
 	//----------------------------------------------------------------------------------------
-	/** Trim a string from both sides by removing whitespace.
+	/** CharacterTraits encapsulates traits of the raw characters stored in a BaseString.
 	 *
-	 *  By default, only space characters, tab characters, backspaces and newlines (ASCII) are removed
-	 *  TODO
+	 *  It does not know about encodings and is therefore for example not able to tell
+	 *  whether a character is printable or not - for this, code points traits are used,
+	 *  which then require an encoding to be specified.
+	 */
+	//----------------------------------------------------------------------------------------
+	template<typename T>
+	struct CharacterTraits {
+
+	};
+
+	template<>
+	struct CharacterTraits<char> : std::numeric_limits<char> {
+		
+		// These character traits do not depend on the character set being used
+		// as the C++ compiler automatically encodes the escapes accordingly.
+		static const char tab = '\t';
+		static const char linefeed = '\r';
+		static const char newline = '\n';
+		static const char space = ' ';
+	};
+
+	
+	//----------------------------------------------------------------------------------------
+	/** Trim a string from both sides by removing whitespace. #cutecat::CharacterTraits's 
+	 *  tab, linefeed, newline and space characters are all considered whitespace.
+	 *
+	 *  Use the predicated version to specify a different character set.
 	 */
 	//----------------------------------------------------------------------------------------
 	template <typename T>
 	inline bool Trim(BaseString<T>& d)
 	{
-		const char* const sz = d.c_str(), *cur = sz;
+		const char* const sz = d.begin(), *cur = sz;
 
 		size_t left = 0u;
 		while(*cur != 0) {
-			if (*cur != ' ' && *cur != '\t' && *cur != '\n' && *cur != '\r') {
+			if (*cur != CharacterTraits<T>::space		&& 
+				*cur != CharacterTraits<T>::tab			&&
+				*cur != CharacterTraits<T>::newline		&& 
+				*cur != CharacterTraits<T>::linefeed) {
 				break;
 			}
 			++cur;
@@ -1283,9 +1337,12 @@ namespace cutecat {
 		const std::size_t len = d.length();
 		const char* const end = sz + len, *back_cur = end;
 
-		size_t right = 0u;
+		std::size_t right = 0u;
 		while(--back_cur > cur) {
-			if (*cur != ' ' && *cur != '\t' && *cur != '\n' && *cur != '\r') {
+			if (*back_cur != CharacterTraits<T>::space		&& 
+				*back_cur != CharacterTraits<T>::tab		&&
+				*back_cur != CharacterTraits<T>::newline	&& 
+				*back_cur != CharacterTraits<T>::linefeed) {
 				break;
 			}
 			++right;
@@ -1293,7 +1350,7 @@ namespace cutecat {
 
 		assert(back_cur >= cur);
 		if(left > 0 || right > 0) {
-			d = d[Slice(left,len-right)]; 
+			d = d.get(left,len-right); 
 			return true;
 		}
 		return false;
@@ -1307,19 +1364,11 @@ namespace cutecat {
 	 */
 	//----------------------------------------------------------------------------------------
 	template <typename T, typename TLambda>
-	inline bool Trim(BaseString<T>& d, const TLambda& predicate
+	inline bool Trim(BaseString<T>& d, TLambda predicate
 		// avoid use of std::function because it may be slower
-#ifdef CUTECAT_HAS_DECLTYPE
-		, typename std::enable_if<
-			std::is_convertible<
-				typename std::result_of<TLambda>::type, 
-				bool
-			>::value
-		>::type* p = nullptr
-#endif 
 	) 
 	{
-		const char* const sz = d.c_str(), *cur = sz;
+		const char* const sz = d.begin(), *cur = sz;
 
 		size_t left = 0u;
 		while(*cur != 0) {
@@ -1343,7 +1392,7 @@ namespace cutecat {
 		
 		assert(back_cur >= cur);
 		if(left > 0 || right > 0) {
-			d = d[Slice(left,len-right)]; 
+			d = d.get(left,len-right); 
 			return true;
 		}
 		return false;

@@ -27,5 +27,8 @@
     <ClCompile Include="string_test.cpp">
       <Filter>test</Filter>
     </ClCompile>
+    <ClCompile Include="trim_test.cpp">
+      <Filter>test</Filter>
+    </ClCompile>
   </ItemGroup>
 </Project>

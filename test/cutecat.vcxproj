@@ -85,6 +85,7 @@
     <ClCompile Include="gtest\gtest-all.cc" />
     <ClCompile Include="gtest\gtest_main.cc" />
     <ClCompile Include="string_test.cpp" />
+    <ClCompile Include="trim_test.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

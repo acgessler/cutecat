@@ -30,6 +30,8 @@ TEST (StringTest, TestEmptyString) {
 
 	ASSERT_EQ(0, str.length());
 	ASSERT_NE(nullptr, str.get_array());
+
+	ASSERT_EQ(cutecat::BaseString<char>(), str);
 }
 
 
