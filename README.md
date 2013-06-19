@@ -20,21 +20,44 @@ using cutecat::FromRaw;
 String st = FromRaw("apple banana"); 
 
 // replace the space by a colon
-st.set(3,4) = ":";
+st(3,4) <= ":";
 // st is now "apple:banana"
 
 // prepend "cherry:"
-st.set(0,0) = "cherry:";
+st(0,0) <= "cherry:";
+
 
 // append ":peach"
-st.set(-1,-1) = ":peach";
-// alt: st &= ":peach";
+st(-1,-1) <= ":peach";
+// without slices: st = st & ":peach";
 
-// remove apply by substituting the empty string
-st.set(8,14) = "";
+// remove "apple:" by substituting the empty string
+st(8,14) <= "";
 
 // or lets just make a new string by putting together some (overlapping) slices
-String result = st.get(1,6) & st.get(2,7) & st.get(0, -1);
+String result = st(1,6) & st(2,7) & st(0, -1);
+
+````
+
+Lazy Concatenation
+-------
+
+String concatenation with _cutecat_ uses expression templates to optimize concatenations. String operations
+can thus be expressed  in the simplest possible way without inducing unnecessary copies. 
+
+Slices can be used almost interchangeable with strings.
+````c++
+using cutecat::String;
+using cutecat::FromRaw;
+
+// unnecessary copies are elided and all concatenations done in one batch
+String ar = GetSomeString() & ", Price: " & 24 & " USD"; // TODO
+
+String st = FromRaw("peach:cherry");
+
+// the following induces no extra copies at all
+st = "apple:" & st;
+st = st & ":banana";
 
 ````
 
@@ -51,12 +74,13 @@ using cutecat::String;
 String st = GetSomeString();
 
 // split at commas
-std::vector<MutableStringSlice> parts;
+std::vector<StringSlice> parts;
 Split(st, ',', parts); 
 
 // for all parts: remove whitespace from both sides 
+// (this is done by simply changing the slice window)
 for(auto& slice : parts) {
-   Trim(slice); 
+   slice = TrimSlice(slice); 
 }
 
 // now join them again, using a semicolon as separator
