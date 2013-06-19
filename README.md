@@ -35,7 +35,7 @@ st(-1,-1) <= ":peach";
 st(8,14) <= "";
 
 // or lets just make a new string by putting together some (overlapping) slices
-String result = st(1,6) & st(2,7) & st(0, -1);
+String result = st(1,6) <cat> st(2,7) <cat> st(0, -1);
 
 ````
 
@@ -51,13 +51,13 @@ using cutecat::String;
 using cutecat::FromRaw;
 
 // unnecessary copies are elided and all concatenations done in one batch
-String ar = GetSomeString() & ", Price: " & 24 & " USD"; // TODO
+String ar = GetSomeString() <cat> ", Price: " <cat> 24 <cat> " USD"; // TODO
 
 String st = FromRaw("peach:cherry");
 
 // the following induces no extra copies at all
-st = "apple:" & st;
-st = st & ":banana";
+st = "apple:" <cat> st;
+st = st <cat> ":banana";
 
 ````
 
