@@ -223,6 +223,37 @@ namespace cutecat {
 		};
 	}
 
+	template<typename T>
+	class BaseStringSlice;
+
+	//----------------------------------------------------------------------------------------
+	/** TODO
+	 */
+	//----------------------------------------------------------------------------------------
+	template<typename T>
+	class BaseStringSliceMaybeConst
+	{
+		friend class BaseString<T>;
+		friend class BaseStringSlice<T>;
+		friend class BaseStringSlice<const T>;
+
+	private:
+
+		BaseStringSliceMaybeConst(std::size_t starti, std::size_t endi, BaseString<T>& src)
+			: starti(starti)
+			, endi(endi)
+			, src(src)
+		{
+
+		}
+
+	private:
+
+		const std::size_t starti;
+		const std::size_t endi;
+		BaseString<T>& src;
+	};
+
 
 	//----------------------------------------------------------------------------------------
 	/** Represents a slice (subset) of a string.
@@ -250,6 +281,69 @@ namespace cutecat {
 		// ---------------------------------------------------------------------
 		/** TODO */
 		// ---------------------------------------------------------------------
+		BaseStringSlice(const BaseStringSliceMaybeConst<T>&& other)
+			: src(other.src)
+		{
+			if(src.flags & BaseString<T>::FLAG_STATIC) {
+				src._make_nonstatic();
+			}
+			data = src.data + other.starti;
+			data_end = src.data + other.endi;
+		}
+
+	public:
+
+		// ---------------------------------------------------------------------
+		/** TODO */
+		// ---------------------------------------------------------------------
+		BaseStringSlice& operator <= (const BaseStringSlice<T>& other)
+		{
+			if(other.src == src) {
+				src._sub<true>(data, data_end, other.begin(), other.end());
+			}
+			else {
+				src._sub<false>(data, data_end, other.begin(), other.end());
+			}
+			return *this;
+		}
+
+
+		// ---------------------------------------------------------------------
+		/** TODO */
+		// ---------------------------------------------------------------------
+		BaseStringSlice& operator <=(const BaseStringSlice<const T>& other)
+		{
+			const T* obegin = other.begin(), *oend = other.end();
+			if(obegin >= data && oend <= data_end) {
+				src._sub<true>(data, data_end, obegin, oend);
+			}
+			else {
+				src._sub<false>(data, data_end, obegin, oend);
+			}
+			return *this;
+		}
+
+
+		// ---------------------------------------------------------------------
+		/** TODO */
+		// ---------------------------------------------------------------------
+		BaseStringSlice& operator <=(const BaseString<T>& other)
+		{
+			if(other == src) {
+				src._sub<true>(data, data_end, other.begin(), other.end());
+			}
+			else {
+				src._sub<false>(data, data_end, other.begin(), other.end());
+			}
+			return *this;
+		}
+
+
+	public:
+
+		// ---------------------------------------------------------------------
+		/** TODO */
+		// ---------------------------------------------------------------------
 		T operator[] (size_t index) const {
 			assert(data + index < data_end);
 			return data[index];
@@ -271,55 +365,6 @@ namespace cutecat {
 		// ---------------------------------------------------------------------
 		operator BaseStringSlice<const T> () {
 			return BaseStringSlice<const T>(data, data_end);
-		}
-
-
-	public:
-
-
-		// ---------------------------------------------------------------------
-		/** TODO */
-		// ---------------------------------------------------------------------
-		BaseStringSlice& operator=(const BaseStringSlice<T>& other)
-		{
-			if(other.src == src) {
-				src._sub<true>(data, data_end, other.begin(), other.end());
-			}
-			else {
-				src._sub<false>(data, data_end, other.begin(), other.end());
-			}
-			return *this;
-		}
-
-
-		// ---------------------------------------------------------------------
-		/** TODO */
-		// ---------------------------------------------------------------------
-		BaseStringSlice& operator=(const BaseStringSlice<const T>& other)
-		{
-			const T* obegin = other.begin(), *oend = other.end();
-			if(obegin >= data && oend <= data_end) {
-				src._sub<true>(data, data_end, obegin, oend);
-			}
-			else {
-				src._sub<false>(data, data_end, obegin, oend);
-			}
-			return *this;
-		}
-
-
-		// ---------------------------------------------------------------------
-		/** TODO */
-		// ---------------------------------------------------------------------
-		BaseStringSlice<T>& operator=(const BaseString<T>& other)
-		{
-			if(other == src) {
-				src._sub<true>(data, data_end, other.begin(), other.end());
-			}
-			else {
-				src._sub<false>(data, data_end, other.begin(), other.end());
-			}
-			return *this;
 		}
 
 	public:
@@ -379,6 +424,43 @@ namespace cutecat {
 	};
 
 
+
+	template <typename T>
+	BaseStringSlice<T>& operator <=(BaseStringSliceMaybeConst<T>&& self, const BaseStringSlice<T>& other)
+	{
+		return BaseStringSlice<T>(std::move(self)) <= other;
+	}
+
+
+	template <typename T>
+	BaseStringSlice<T>& operator <=(BaseStringSliceMaybeConst<T>&& self, const BaseStringSlice<const T>& other)
+	{
+		return BaseStringSlice<T>(std::move(self)) <= other;
+	}
+
+
+	template <typename T>
+	BaseStringSlice<T>& operator <=(BaseStringSliceMaybeConst<T>&& self, BaseStringSliceMaybeConst<T>&& other)
+	{
+		return BaseStringSlice<T>(std::move(self)) <= BaseStringSlice<const T>(std::move(other));
+	}
+
+
+	template <typename T>
+	BaseStringSlice<T>& operator <=(BaseStringSliceMaybeConst<T>&& self, const BaseString<T>& other)
+	{
+		return BaseStringSlice<T>(std::move(self)) <= other;
+	}
+
+
+	template <typename T>
+	BaseStringSlice<T>& operator <=(BaseStringSlice<T>& self, BaseStringSliceMaybeConst<T>&& other)
+	{
+		return self <= BaseStringSlice<const T>(std::move(other));
+	}
+
+
+
 	//----------------------------------------------------------------------------------------
 	/** Specialization of BaseStringSlice<T> for const T.
 	 *
@@ -398,6 +480,15 @@ namespace cutecat {
 			, data_end(data_end)
 		{
 
+		}
+
+	public:
+
+		BaseStringSlice(const BaseStringSliceMaybeConst<T>&& other)
+		{
+			const T* const s = other.src.begin();
+			data = s + other.starti;
+			data_end = s + other.endi;
 		}
 
 	public:
@@ -675,8 +766,10 @@ namespace cutecat {
 		// ---------------------------------------------------------------------
 		/** TODO */
 		// ---------------------------------------------------------------------
-		BaseString& operator= (const BaseStringSlice<const T>& other)
+		BaseString& operator <= (const BaseStringSlice<const T>& other)
 		{
+			const bool self_slice = other.is_slice_of(*this);
+
 			const size_t len = other.length();
 			if(len <= MAX_INTERNAL_LEN) {
 				if ((flags & (FLAG_STATIC | FLAG_INTERN)) == 0) {
@@ -705,12 +798,15 @@ namespace cutecat {
 				flags = 0;
 			}
 
-			if(other.is_slice_of(*this)) {
-				detail::fast_copy<true>(data, other.begin(), len + 1);
+			if(self_slice) {
+				detail::fast_copy<true>(data, other.begin(), len);
 			}
 			else {
-				detail::fast_copy<false>(data, other.begin(), len + 1);
+				detail::fast_copy<false>(data, other.begin(), len);
 			}
+
+			// ensure zero-termination
+			data[len] = 0;
 			return *this;
 		}
 
@@ -811,6 +907,22 @@ namespace cutecat {
 
 	public:
 
+
+		// ---------------------------------------------------------------------
+		/** TODO */
+		// ------------------------------- --------------------------------------
+		BaseStringSliceMaybeConst<T> operator()(std::size_t begini, std::size_t endi) {
+			assert(begini <= endi && endi <= length());
+			return BaseStringSliceMaybeConst<T>(begini, endi, *this);
+		}
+
+
+		BaseStringSlice<const T> operator()(std::size_t begini, std::size_t endi) const {
+			return BaseStringSlice<const T>(data + begini, data + endi);
+		} 
+
+	public:
+
 		
 		// ---------------------------------------------------------------------
 		/** TODO */
@@ -830,11 +942,6 @@ namespace cutecat {
 		/** TODO */
 		// ---------------------------------------------------------------------
 		BaseStringSlice<const T> get(std::size_t begini, std::size_t endi) const {
-			return BaseStringSlice<const T>(data + begini, data + endi);
-		} 
-
-
-		BaseStringSlice<const T> operator()(std::size_t begini, std::size_t endi) const {
 			return BaseStringSlice<const T>(data + begini, data + endi);
 		} 
 
@@ -1348,9 +1455,8 @@ namespace cutecat {
 			++right;
 		}
 
-		assert(back_cur >= cur);
 		if(left > 0 || right > 0) {
-			d = d.get(left,len-right); 
+			d <= d(left,len-right); 
 			return true;
 		}
 		return false;
@@ -1392,7 +1498,7 @@ namespace cutecat {
 		
 		assert(back_cur >= cur);
 		if(left > 0 || right > 0) {
-			d = d.get(left,len-right); 
+			d <= d(left,len-right); 
 			return true;
 		}
 		return false;

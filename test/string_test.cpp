@@ -258,12 +258,12 @@ TEST (StringTest, TestStringEmptySlicing) {
 	ASSERT_EQ(str1.set(0,0), str2.get(0,0));
 
 	// assign empty slice of different string
-	str1.set(0,0) = str2.get(0,0);
-	str1.set(0,0) = str2.get(2,2);
+	str1.set(0,0) <= str2.get(0,0);
+	str1.set(0,0) <= str2.get(2,2);
 
 	// assign empty slice of same string
-	str1.set(0,0) = str1.get(0,0);
-	str1.set(0,0) = str1.get(15,15);
+	str1.set(0,0) <= str1.get(0,0);
+	str1.set(0,0) <= str1.get(15,15);
 
 	ASSERT_EQ(str1.get(0,0), str2.get(0,0));
 	ASSERT_EQ(str1.set(0,0), str2.get(0,0));
@@ -327,39 +327,102 @@ TEST (StringTest, TestStringSlicing) {
 	cutecat::BaseString<char> str3 = cutecat::FromStatic("aaaaaa");
 
 	// insert str3 at the beginning of str2 
-	str2.set(0,0) = str3;
+	str2.set(0,0) <= str3;
 	CompareAndCheckLengthConsistency(str3,"aaaaaa");
 	CompareAndCheckLengthConsistency(str2,"aaaaaaabcdef");
 
 	// insert str2 at the beginning of str3
-	str3.set(0,0) = str2;
+	str3.set(0,0) <= str2;
 	CompareAndCheckLengthConsistency(str2,"aaaaaaabcdef");
 	CompareAndCheckLengthConsistency(str3,"aaaaaaabcdefaaaaaa");
 
 	// extract middle part of str3 and assign to str2 using normal assignment
-	str2.set(0,str2.length()) = str3.get(6,12);
+	str2.set(0,str2.length()) <= str3.get(6,12);
 	//str2 = str3.get(6,12);
 	CompareAndCheckLengthConsistency(str2,"abcdef");
 	CompareAndCheckLengthConsistency(str3,"aaaaaaabcdefaaaaaa");
 
 	// duplicate str2 by appending to the end
-	str2.set(str2.length(),str2.length()) = str2;
+	str2.set(str2.length(),str2.length()) <= str2;
 	CompareAndCheckLengthConsistency(str2,"abcdefabcdef");
 
 	// do that again, but this time insert at the second last position
-	str2.set(str2.length() - 1,str2.length() - 1) = str2;
+	str2.set(str2.length() - 1,str2.length() - 1) <= str2;
 	CompareAndCheckLengthConsistency(str2,"abcdefabcdeabcdefabcdeff");
 
 	// do that again, but this time replace everything between the first and last character
-	str2.set(1,str2.length() - 1) = str2;
+	str2.set(1,str2.length() - 1) <= str2;
 	CompareAndCheckLengthConsistency(str2,"aabcdefabcdeabcdefabcdefff");
 
 	// do that again, but this time set everything between the first and last character nil
-	str2.set(1,str2.length() - 1) = cutecat::FromStatic("");
+	str2.set(1,str2.length() - 1) <= cutecat::BaseString<char>(cutecat::FromStatic(""));
 	CompareAndCheckLengthConsistency(str2,"af");
 
 	// extract middle part of str3 and assign to str2 using slice assignment
-	str2.set(0,str2.length()) = str3.get(6,12);
+	str2.set(0,str2.length()) <= str3.get(6,12);
+	CompareAndCheckLengthConsistency(str2,"abcdef");
+	CompareAndCheckLengthConsistency(str3,"aaaaaaabcdefaaaaaa");
+}
+
+
+//----------------------------------------------------------------------------------------
+TEST (StringTest, TestStringSlicingCompactSyntax) { 
+	const char* c = lorem_ipsum;
+
+	cutecat::BaseString<char> str1 = cutecat::FromRaw(c);
+
+	// test basic slice access
+	str1.set(1,5)[0] = 'a';
+	ASSERT_EQ(str1.get(1), 'a');
+
+	cutecat::BaseStringSlice<char> s = str1.set(1,5);
+	for( char* c = s.begin(); c != s.end(); ++c) {
+		*c = 'a';
+	} 
+
+	// equality of different slices
+	ASSERT_EQ(str1.get(1,5), s);
+	ASSERT_EQ(s, str1.get(1,5));
+	ASSERT_EQ(str1.set(1,5), str1.get(1,5));
+
+	//
+	cutecat::BaseString<char> str2 = cutecat::FromStatic("abcdef");
+	cutecat::BaseString<char> str3 = cutecat::FromStatic("aaaaaa");
+
+	// insert str3 at the beginning of str2 
+	str2(0,0) <= str3;
+	CompareAndCheckLengthConsistency(str3,"aaaaaa");
+	CompareAndCheckLengthConsistency(str2,"aaaaaaabcdef");
+
+	// insert str2 at the beginning of str3
+	str3(0,0) <= str2;
+	CompareAndCheckLengthConsistency(str2,"aaaaaaabcdef");
+	CompareAndCheckLengthConsistency(str3,"aaaaaaabcdefaaaaaa");
+
+	// extract middle part of str3 and assign to str2 using normal assignment
+	str2(0,str2.length()) <= str3(6,12);
+	//str2 = str3.get(6,12);
+	CompareAndCheckLengthConsistency(str2,"abcdef");
+	CompareAndCheckLengthConsistency(str3,"aaaaaaabcdefaaaaaa");
+
+	// duplicate str2 by appending to the end
+	str2(str2.length(),str2.length()) <= str2;
+	CompareAndCheckLengthConsistency(str2,"abcdefabcdef");
+
+	// do that again, but this time insert at the second last position
+	str2(str2.length() - 1,str2.length() - 1) <= str2;
+	CompareAndCheckLengthConsistency(str2,"abcdefabcdeabcdefabcdeff");
+
+	// do that again, but this time replace everything between the first and last character
+	str2(1,str2.length() - 1) <= str2;
+	CompareAndCheckLengthConsistency(str2,"aabcdefabcdeabcdefabcdefff");
+
+	// do that again, but this time set everything between the first and last character nil
+	str2(1,str2.length() - 1) <= cutecat::BaseString<char>(cutecat::FromStatic("")); // TODO
+	CompareAndCheckLengthConsistency(str2,"af");
+
+	// extract middle part of str3 and assign to str2 using slice assignment
+	str2(0,str2.length()) <= str3(6,12);
 	CompareAndCheckLengthConsistency(str2,"abcdef");
 	CompareAndCheckLengthConsistency(str3,"aaaaaaabcdefaaaaaa");
 }

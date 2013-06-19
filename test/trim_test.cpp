@@ -21,7 +21,7 @@ TEST (TrimTest, TestNormalTrim) {
 	s = FromStatic("foo bar ");
 	Trim(s);
 	ASSERT_EQ(s, sbase);
-
+	
 	s = FromStatic("    foo bar   ");
 	Trim(s);
 	ASSERT_EQ(s, sbase);
