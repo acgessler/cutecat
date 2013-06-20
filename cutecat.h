@@ -1037,39 +1037,46 @@ namespace cutecat {
 		// ------------------------------- --------------------------------------
 		BaseStringSliceMaybeConst<T> operator()(const FromBack& begini, const FromBack& endi) {
 			assert(_is_valid_slice(begini, endi));
-			return BaseStringSliceMaybeConst<T>(begini, endi, *this);
+			return BaseStringSliceMaybeConst<T>(
+				(begini >= 0 ? begini : length() + begini), 
+				(endi   >= 0 ? endi   : length() + endi),
+				*this
+			);
 		}
 
 
 		BaseStringSlice<const T> operator()(const FromBack& begini, const FromBack& endi) const {
 			assert(_is_valid_slice(begini, endi));
-			return BaseStringSlice<const T>(data + begini, data + endi);
+			return BaseStringSlice<const T>(
+				data + (begini >= 0 ? begini : length() + begini), 
+				data + (endi   >= 0 ? endi   : length() + endi)
+			);
 		} 
 
 
 		// ------------------------------- --------------------------------------
 		BaseStringSliceMaybeConst<T> operator()(const FromBack& begini, std::size_t endi) {
 			assert(_is_valid_slice(begini, endi));
-			return BaseStringSliceMaybeConst<T>(begini, endi, *this);
+			return BaseStringSliceMaybeConst<T>((begini >= 0 ? begini : length() + begini), endi, *this);
 		}
 
 
 		BaseStringSlice<const T> operator()(const FromBack& begini, std::size_t endi) const {
 			assert(_is_valid_slice(begini, endi));
-			return BaseStringSlice<const T>(data + begini, data + endi);
+			return BaseStringSlice<const T>(data + (begini >= 0 ? begini : length() + begini), data + endi);
 		} 
 
 
 		// ------------------------------- --------------------------------------
 		BaseStringSliceMaybeConst<T> operator()(std::size_t begini, const FromBack& endi) {
 			assert(_is_valid_slice(begini, endi));
-			return BaseStringSliceMaybeConst<T>(begini, endi, *this);
+			return BaseStringSliceMaybeConst<T>(begini, (endi >= 0 ? endi : length() + endi), *this);
 		}
 
 
 		BaseStringSlice<const T> operator()(std::size_t begini, const FromBack& endi) const {
 			assert(_is_valid_slice(begini, endi));
-			return BaseStringSlice<const T>(data + begini, data + endi);
+			return BaseStringSlice<const T>(data + begini, data + (endi >= 0 ? endi : length() + endi));
 		} 
 
 
@@ -1441,6 +1448,17 @@ namespace cutecat {
 	}
 
 
+	template<typename T, typename TRight>
+	inline bool operator==(const TRight& a, const T* cstr) // TODO: check on length etc
+	{
+		const std::size_t len = a.length();
+		if(len != ::strlen(cstr)) {
+			return false;
+		}
+		return !::memcmp(a.cbegin(), cstr, len);
+	}
+
+
 	//----------------------------------------------------------------------------------------
 	/** Gets the length of a string.
 	 *
@@ -1704,7 +1722,7 @@ namespace cutecat {
 			if(*data == split) {
 				if(!merge_adjacent || data[1] != split) {
 					*outp++ = src.get(last, last_non_split + 1);
-					last = last_non_split + 1;
+					last = idx + 1;
 				}
 				if(!merge_adjacent) {
 					last_non_split = idx;
@@ -1718,7 +1736,7 @@ namespace cutecat {
 		}
 
 		if(last_non_split == idx - 1 && (last < last_non_split || !merge_adjacent)) {
-			*outp++ = src.get(last_non_split, FromBack(-1));
+			*outp++ = src.get(last, FromBack(0));
 		}
 
 		return outp;
