@@ -272,7 +272,7 @@ namespace cutecat {
 
 	private:
 
-		BaseStringSliceMaybeConst(signed_index starti, signed_index endi, BaseString<T>& src)
+		BaseStringSliceMaybeConst(std::size_t starti, std::size_t endi, BaseString<T>& src)
 			: starti(starti)
 			, endi(endi)
 			, src(src)
@@ -282,8 +282,8 @@ namespace cutecat {
 
 	private:
 
-		const signed_index starti;
-		const signed_index endi;
+		const std::size_t starti;
+		const std::size_t endi;
 		BaseString<T>& src;
 	};
 
@@ -320,8 +320,8 @@ namespace cutecat {
 			if(src.flags & BaseString<T>::FLAG_STATIC) {
 				src._make_nonstatic();
 			}
-			data		= (other.starti < 0 ? src.end()+1 : src.begin()) + other.starti;
-			data_end	= (other.endi   < 0 ? src.end()+1 : src.begin()) + other.endi;
+			data		= src.data + other.starti;
+			data_end	= src.data + other.endi;
 		}
 
 	public:
@@ -346,7 +346,7 @@ namespace cutecat {
 		// ---------------------------------------------------------------------
 		BaseStringSlice& operator <=(const BaseStringSlice<const T>& other)
 		{
-			const T* obegin = other.begin(), *oend = other.end();
+			const T* obegin = other.cbegin(), *oend = other.cend();
 			if(obegin >= data && oend <= data_end) {
 				src._sub<true>(data, data_end, obegin, oend);
 			}
@@ -363,14 +363,44 @@ namespace cutecat {
 		BaseStringSlice& operator <=(const BaseString<T>& other)
 		{
 			if(other == src) {
-				src._sub<true>(data, data_end, other.begin(), other.end());
+				src._sub<true>(data, data_end, other.cbegin(), other.cend());
 			}
 			else {
-				src._sub<false>(data, data_end, other.begin(), other.end());
+				src._sub<false>(data, data_end, other.cbegin(), other.cend());
 			}
 			return *this;
 		}
 
+
+		// ---------------------------------------------------------------------
+		/** TODO */
+		// ---------------------------------------------------------------------
+		BaseStringSlice& operator <= (T fill)
+		{
+			src._sub<false>(data, data_end, &fill, &fill+1);
+			return *this;
+		}
+
+
+		// ---------------------------------------------------------------------
+		/** TODO */
+		// ---------------------------------------------------------------------
+		BaseStringSlice& operator <= (const T* fill)
+		{
+			assert(fill != nullptr);
+
+			const T* fill_end = fill;
+			while(*fill_end) ++fill_end;
+
+			if(fill >= data && fill_end <= data_end) {
+				src._sub<true>(data, data_end, fill, fill_end);
+			}
+			else {
+				src._sub<false>(data, data_end, fill, fill_end);
+			}
+
+			return *this;
+		}
 
 	public:
 
@@ -444,6 +474,21 @@ namespace cutecat {
 			return data_end;
 		}
 
+
+		// ---------------------------------------------------------------------
+		/** TODO */
+		// ---------------------------------------------------------------------
+		const T* cbegin() const {
+			return data;
+		}
+
+		// ---------------------------------------------------------------------
+		/** TODO */
+		// ---------------------------------------------------------------------
+		const T* cend() const {
+			return data_end;
+		}
+
 	public:
 
 		std::size_t length() const {
@@ -493,6 +538,20 @@ namespace cutecat {
 	}
 
 
+	template <typename T>
+	BaseStringSlice<T>& operator <= (BaseStringSliceMaybeConst<T>&& self, T fill)
+	{
+		return BaseStringSlice<T>(std::move(self)) <= fill;
+	}
+
+
+	template <typename T>
+	BaseStringSlice<T>& operator <= (BaseStringSliceMaybeConst<T>&& self, const T* fill)
+	{
+		return BaseStringSlice<T>(std::move(self)) <= fill;
+	}
+
+
 
 	//----------------------------------------------------------------------------------------
 	/** Specialization of BaseStringSlice<T> for const T.
@@ -519,9 +578,9 @@ namespace cutecat {
 
 		BaseStringSlice(const BaseStringSliceMaybeConst<T>&& other)
 		{
-			const T* const s = other.src.begin(), const *const e = other.src.end();
-			data		= (other.starti < 0 ? e+1 : s) + other.starti;
-			data_end	= (other.endi   < 0 ? e+1 : s) + other.endi;
+			const T* const s = other.src.begin();
+			data		= s + other.starti;
+			data_end	= s + other.endi;
 		}
 
 	public:
@@ -539,14 +598,14 @@ namespace cutecat {
 		// ---------------------------------------------------------------------
 		/** TODO */
 		// ---------------------------------------------------------------------
-		const T* begin() const {
+		const T* cbegin() const {
 			return data;
 		}
 
 		// ---------------------------------------------------------------------
 		/** TODO */
 		// ---------------------------------------------------------------------
-		const T* end() const {
+		const T* cend() const {
 			return data_end;
 		}
 
@@ -557,7 +616,7 @@ namespace cutecat {
 		// ---------------------------------------------------------------------
 		bool is_slice_of(const BaseString<T>& other) const {
 			// TODO: check for actual string object
-			return data >= other.begin() && data_end <= other.end(); 
+			return data >= other.cbegin() && data_end <= other.cend(); 
 		}
 
 	public:
@@ -832,10 +891,10 @@ namespace cutecat {
 			}
 
 			if(self_slice) {
-				detail::fast_copy<true>(data, other.begin(), len);
+				detail::fast_copy<true>(data, other.cbegin(), len);
 			}
 			else {
-				detail::fast_copy<false>(data, other.begin(), len);
+				detail::fast_copy<false>(data, other.cbegin(), len);
 			}
 
 			// ensure zero-termination
@@ -977,39 +1036,39 @@ namespace cutecat {
 		 */
 		// ------------------------------- --------------------------------------
 		BaseStringSliceMaybeConst<T> operator()(const FromBack& begini, const FromBack& endi) {
-			assert(ValidSlice(begini, endi));
+			assert(_is_valid_slice(begini, endi));
 			return BaseStringSliceMaybeConst<T>(begini, endi, *this);
 		}
 
 
 		BaseStringSlice<const T> operator()(const FromBack& begini, const FromBack& endi) const {
-			assert(ValidSlice(begini, endi));
+			assert(_is_valid_slice(begini, endi));
 			return BaseStringSlice<const T>(data + begini, data + endi);
 		} 
 
 
 		// ------------------------------- --------------------------------------
 		BaseStringSliceMaybeConst<T> operator()(const FromBack& begini, std::size_t endi) {
-			assert(ValidSlice(begini, endi));
+			assert(_is_valid_slice(begini, endi));
 			return BaseStringSliceMaybeConst<T>(begini, endi, *this);
 		}
 
 
 		BaseStringSlice<const T> operator()(const FromBack& begini, std::size_t endi) const {
-			assert(ValidSlice(begini, endi));
+			assert(_is_valid_slice(begini, endi));
 			return BaseStringSlice<const T>(data + begini, data + endi);
 		} 
 
 
 		// ------------------------------- --------------------------------------
 		BaseStringSliceMaybeConst<T> operator()(std::size_t begini, const FromBack& endi) {
-			assert(ValidSlice(begini, endi));
+			assert(_is_valid_slice(begini, endi));
 			return BaseStringSliceMaybeConst<T>(begini, endi, *this);
 		}
 
 
 		BaseStringSlice<const T> operator()(std::size_t begini, const FromBack& endi) const {
-			assert(ValidSlice(begini, endi));
+			assert(_is_valid_slice(begini, endi));
 			return BaseStringSlice<const T>(data + begini, data + endi);
 		} 
 
@@ -1018,25 +1077,25 @@ namespace cutecat {
 		/** TODO */
 		// ------------------------------- --------------------------------------
 		BaseStringSliceMaybeConst<T> operator()(std::size_t index) {
-			assert(ValidSlice(index,index));
+			assert(_is_valid_slice(index,index));
 			return BaseStringSliceMaybeConst<T>(data + index, data + index);
 		}
 
 
 		BaseStringSlice<const T> operator()(std::size_t index) const {
-			assert(ValidSlice(index,index));
+			assert(_is_valid_slice(index,index));
 			return BaseStringSlice<const T>(data + index, data + index);
 		} 
 
 
 		BaseStringSliceMaybeConst<T> operator()(const FromBack& index) {
-			assert(ValidSlice(index,index));
+			assert(_is_valid_slice(index,index));
 			return BaseStringSliceMaybeConst<T>(data + index, data + index);
 		}
 
 
 		BaseStringSlice<const T> operator()(const FromBack& index) const {
-			assert(ValidSlice(index,index));
+			assert(_is_valid_slice(index,index));
 			return BaseStringSlice<const T>(data + index, data + index);
 		} 
 
@@ -1050,8 +1109,7 @@ namespace cutecat {
 		BaseStringSlice<T> set(std::size_t begini, std::size_t endi) {
 			assert(begini <= endi && endi <= length());
 
-			if (flags & FLAG_STATIC) {
-				// copy-on-write
+			if (flags & FLAG_STATIC) { // copy-on-write
 				_make_nonstatic();
 			}
 			return BaseStringSlice<T>(data + begini, data + endi, *this);
@@ -1065,6 +1123,29 @@ namespace cutecat {
 			return BaseStringSlice<const T>(data + begini, data + endi);
 		} 
 
+
+		// ---------------------------------------------------------------------
+		/** TODO */
+		// ---------------------------------------------------------------------
+		BaseStringSlice<T> set(std::size_t index) {
+			assert(index < length());
+			if (flags & FLAG_STATIC) { // copy-on-write
+				_make_nonstatic();
+			}
+			return BaseStringSlice<T>(data + index, data + index);
+		}
+
+
+		// ---------------------------------------------------------------------
+		/** TODO */
+		// ---------------------------------------------------------------------
+		BaseStringSlice<const T> get(std::size_t index) const {
+			assert(_is_valid_slice(index,index));
+			return BaseStringSlice<const T>(data + index, data + index);
+		}
+
+
+		// TODO: FromBack versions
 
 	public:
 
@@ -1090,14 +1171,14 @@ namespace cutecat {
 		// ---------------------------------------------------------------------
 		/** TODO */
 		// ---------------------------------------------------------------------
-		const T* begin() const {
+		const T* cbegin() const {
 			return data;
 		}
 
 		// ---------------------------------------------------------------------
 		/** TODO */
 		// ---------------------------------------------------------------------
-		const T* end() const {
+		const T* cend() const {
 			return data + length();
 		}
 
@@ -1109,28 +1190,6 @@ namespace cutecat {
 		// ---------------------------------------------------------------------
 		T operator[] (std::size_t index) const {
 			assert(index < length());
-			return data[index];
-		}
-
-
-		// ---------------------------------------------------------------------
-		/** TODO */
-		// ---------------------------------------------------------------------
-		T& set(std::size_t index) {
-			assert(index < length());
-
-			if (flags & FLAG_STATIC) {
-				 // copy-on-write
-				_make_nonstatic();
-			}
-			return data[index];
-		}
-
-
-		// ---------------------------------------------------------------------
-		/** TODO */
-		// ---------------------------------------------------------------------
-		T get(std::size_t index) const {
 			return data[index];
 		}
 
@@ -1150,8 +1209,7 @@ namespace cutecat {
 		/** TODO */
 		// ---------------------------------------------------------------------
 		T* get_writable_array() {
-			if (flags & FLAG_STATIC) {
-				// copy-on-write
+			if (flags & FLAG_STATIC) { // copy-on-write
 				_make_nonstatic();
 			}
 			return data;
@@ -1168,6 +1226,35 @@ namespace cutecat {
 		}
 
 	private:
+
+
+#ifdef _DEBUG
+
+		// ---------------------------------------------------------------------
+		/** Debug checks */
+		// ---------------------------------------------------------------------
+		bool _is_valid_slice(std::size_t begini, std::size_t endi) const {
+			return begini <= endi && endi <= length();
+		}
+
+
+		bool _is_valid_slice(const FromBack& begini_tag, std::size_t endi) const {
+			const std::size_t begini = (begini_tag >= 0 ? begini_tag : length() + begini_tag + 1);
+			return begini <= endi && endi <= length();
+		}
+
+		bool _is_valid_slice(std::size_t begini, const FromBack& endi_tag) const {
+			const std::size_t endi = (endi_tag >= 0 ? endi_tag : length() + endi_tag + 1);
+			return begini <= endi && endi <= length();
+		}
+
+		bool _is_valid_slice(const FromBack& begini_tag, const FromBack& endi_tag) const {
+			const std::size_t begini = (begini_tag >= 0 ? begini_tag : length() + begini_tag + 1);
+			const std::size_t endi = (endi_tag >= 0 ? endi_tag : length() + endi_tag + 1);
+			return begini <= endi && endi <= length();
+		}
+
+#endif
 
 
 		// ---------------------------------------------------------------------
@@ -1304,19 +1391,6 @@ namespace cutecat {
 
 
 	//----------------------------------------------------------------------------------------
-	/** String base class
-	 *
-	 *  TODO
-	 */
-	//----------------------------------------------------------------------------------------
-	template<typename T>
-	class BaseStringAdapter
-	{
-		 
-	};
-
-
-	//----------------------------------------------------------------------------------------
 	/** String comparison
 	 *
 	 *  TODO
@@ -1330,9 +1404,10 @@ namespace cutecat {
 	}
 
 
-	template<typename T>
-	inline bool operator!=(const BaseString<T>& a, const BaseString<T>& b)
+	template<typename TLeft, typename TRight> 
+	inline bool operator!=(const TLeft& a, const TRight& b)
 	{
+		// ADL should find this
 		return !(a == b);
 	}
 
@@ -1343,88 +1418,27 @@ namespace cutecat {
 	 *  TODO
 	 */
 	//----------------------------------------------------------------------------------------
+	
 	template<typename TLeft, typename TRight>
-	typename detail::enable_if_same_or_const<
-		TLeft, TRight, bool
-	>::type 
-	operator==(const BaseString<TLeft>& a, const BaseStringSlice<TRight>& b)
-	{
-		return b == a;
-	}
-
-
-	template<typename TLeft, typename TRight>
-	typename detail::enable_if_same_or_const<
-		TLeft, TRight, bool
-	>::type 
-	operator!=(const BaseString<TLeft>& a, const BaseStringSlice<TRight>& b)
-	{
-		return !(a == b);
-	}
-
-
-	template<typename TLeft, typename TRight>
-	typename detail::enable_if_same_or_const<
-		TLeft, TRight, bool
-	>::type 
-	operator==(const BaseStringSlice<TLeft>& b, const BaseString<TRight>& a)
+	inline bool operator==(const TLeft& b, const TRight& a) // TODO: check on length etc
 	{
 		const std::size_t len = a.length();
 		if(len != b.length()) {
 			return false;
 		}
-		return !::memcmp(a.get_array(), b.begin(), len);
+		return !::memcmp(a.cbegin(), b.cbegin(), len);
 	}
 
 
-	template<typename TLeft, typename TRight>
-	typename detail::enable_if_same_or_const<
-		TLeft, TRight, bool
-	>::type 
-	operator!=(const BaseStringSlice<TLeft>& b, const BaseString<TRight>& a)
-	{
-		return !(a == b);
-	}
-
-
-
-	//----------------------------------------------------------------------------------------
-	/** String comparison
-	 *
-	 *  TODO
-	 */
-	//----------------------------------------------------------------------------------------
-	template<typename TLeft, typename TRight>
-	typename detail::enable_if_same_or_const<
-		TLeft, TRight, bool
-	>::type 
-	operator==(const BaseStringSlice<TLeft>& a, const BaseStringSlice<TRight>& b)
+	template<typename T, typename TRight>
+	inline bool operator==(const T* cstr, const TRight& a) // TODO: check on length etc
 	{
 		const std::size_t len = a.length();
-		if(len != b.length()) {
+		if(len != ::strlen(cstr)) {
 			return false;
 		}
-		return !::memcmp(a.begin(), b.begin(), len);
+		return !::memcmp(a.cbegin(), cstr, len);
 	}
-
-
-
-	//----------------------------------------------------------------------------------------
-	/** String comparison
-	 *
-	 *  TODO
-	 */
-	//----------------------------------------------------------------------------------------
-	template<typename TLeft, typename TRight>
-	typename detail::enable_if_same_or_const<
-		TLeft, TRight, bool
-	>::type 
-	operator!=(const BaseStringSlice<TLeft>& a, const BaseStringSlice<TRight>& b)
-	{
-		return !(a == b);
-	}
-
-
 
 
 	//----------------------------------------------------------------------------------------
@@ -1452,6 +1466,20 @@ namespace cutecat {
 	{
 		return s.length() == 0;
 	}
+
+#if 0
+	//----------------------------------------------------------------------------------------
+	/** Checks if a string is empty.
+	 *
+	 *  A string s is empty iff Length(s) == 0.
+	 *  @param s[in] String instance */
+	//----------------------------------------------------------------------------------------
+	template <typename T>
+	inline void Fill(T& s, typename T::value_type fill)
+	{
+		for(const char* c = s.begin(), const * const e = s.end(); c != e; *c++ = fill);
+	}
+#endif	
 	
 
 	//----------------------------------------------------------------------------------------
@@ -1547,7 +1575,7 @@ namespace cutecat {
 	template <typename T>
 	inline BaseStringSlice<const T> Trim(const BaseString<T>& d)
 	{
-		const char* const sz = d.begin(), *cur = sz;
+		const char* const sz = d.cbegin(), *cur = sz;
 
 		size_t left = 0u;
 		while(*cur != 0) {
@@ -1590,7 +1618,7 @@ namespace cutecat {
 		// avoid use of std::function because it may be slower
 	) 
 	{
-		const char* const sz = d.begin(), *cur = sz;
+		const char* const sz = d.cbegin(), *cur = sz;
 
 		size_t left = 0u;
 		while(*cur != 0) {
@@ -1633,9 +1661,71 @@ namespace cutecat {
 
 
 	void ForEachOccurence(const String& d, const String& needle, std::function<void ()(const StringSlice&)>);
-
+#endif // 0
+	
 	// String splitting
-	void Split(char split, const String& d, TContainer<String>& outp);
+
+	//----------------------------------------------------------------------------------------
+	/** Split a given string at each occurrence of a split character.
+	 *
+	 *  The output is a sequence of slices into the input string.
+	 *
+	 *  @param split			Character to split input string at.
+	 *  @param outp				std::back_inserter-like output iterator to receive output
+	 *  @param merge_adjacent	If set to true, adjacent occurrences of the split characters
+	 *							are treated as a single occurrence. If false, adjacent
+	 *                          occurrences cause empty string slices to be generated.
+	 *                          The same applies to split characters at the beginning or end of 
+	 *                          the string, which then cause an empty slice to be generated.
+	 *
+	 *  @return The output iterator after the split operation.
+	 */
+	//----------------------------------------------------------------------------------------
+	template<typename T, typename TOutputIterator>
+	TOutputIterator Split(T split, const BaseString<T>& src, TOutputIterator outp, 
+		bool merge_adjacent = true 
+		 
+		/* FIXME , typename std::enable_if<
+			std::is_assignable<
+				typename std::iterator_traits<TOutputIterator>::value_type,
+				BaseStringSlice<const T>
+			>::value
+		>::type*  = nullptr */
+	)
+	{
+		const T* data = src.get_array();
+		std::size_t idx = 0u, last = 0u, last_non_split = 0u;
+
+		if(merge_adjacent) {
+			while(*data == split) ++data;
+		}
+
+		while(*data) {
+			if(*data == split) {
+				if(!merge_adjacent || data[1] != split) {
+					*outp++ = src.get(last, last_non_split + 1);
+					last = last_non_split + 1;
+				}
+				if(!merge_adjacent) {
+					last_non_split = idx;
+				}
+			}
+			else {
+				last_non_split = idx;
+			}
+			++data;
+			++idx;
+		}
+
+		if(last_non_split == idx - 1 && (last < last_non_split || !merge_adjacent)) {
+			*outp++ = src.get(last_non_split, FromBack(-1));
+		}
+
+		return outp;
+	}
+
+
+#if 0
 	void Split(const String& d, const String& d, TContainer<String>& outp);
 	void Split(char split, const String& d, TContainer<StringSlice>& outp);
 	void Split(const String& d, const String& d, TContainer<StringSlice>& outp);

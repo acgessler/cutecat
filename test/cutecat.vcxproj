@@ -84,6 +84,7 @@
     <ClCompile Include="constexpr_test.cpp" />
     <ClCompile Include="gtest\gtest-all.cc" />
     <ClCompile Include="gtest\gtest_main.cc" />
+    <ClCompile Include="split_test.cpp" />
     <ClCompile Include="string_test.cpp" />
     <ClCompile Include="trim_test.cpp" />
   </ItemGroup>

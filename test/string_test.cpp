@@ -206,7 +206,7 @@ TEST (StringTest, TestStringComparison) {
 	cutecat::BaseString<char> str = cutecat::FromRaw(c);
 	cutecat::BaseString<char> str2 = cutecat::FromRaw(c);
 	cutecat::BaseString<char> str3 = cutecat::FromRaw(c);
-	str3.set(0) = 'a';
+	str3(0,1) <= 'a';
 
 	// string == string
 	ASSERT_EQ(str, str2);
@@ -269,8 +269,8 @@ TEST (StringTest, TestStringEmptySlicing) {
 	ASSERT_EQ(str1.set(0,0), str2.get(0,0));
 	ASSERT_EQ(len, str1.length());
 	ASSERT_TRUE(!::strcmp(str1.get_array(),c));
-	ASSERT_TRUE(!::strcmp(str1.get(0,0).begin(),c));
-	ASSERT_TRUE(!::strcmp(str1.set(0,0).begin(),c));
+	ASSERT_TRUE(!::strcmp(str1.get(0,0).cbegin(),c));
+	ASSERT_TRUE(!::strcmp(str1.set(0,0).cbegin(),c));
 }
 
 
@@ -310,7 +310,7 @@ TEST (StringTest, TestStringSlicing) {
 
 	// test basic slice access
 	str1.set(1,5)[0] = 'a';
-	ASSERT_EQ(str1.get(1), 'a');
+	ASSERT_EQ(str1[1], 'a');
 
 	cutecat::BaseStringSlice<char> s = str1.set(1,5);
 	for( char* c = s.begin(); c != s.end(); ++c) {
@@ -373,7 +373,7 @@ TEST (StringTest, TestStringSlicingCompactSyntax) {
 
 	// test basic slice access
 	str1.set(1,5)[0] = 'a';
-	ASSERT_EQ(str1.get(1), 'a');
+	ASSERT_EQ(str1[1], 'a');
 
 	cutecat::BaseStringSlice<char> s = str1.set(1,5);
 	for( char* c = s.begin(); c != s.end(); ++c) {
