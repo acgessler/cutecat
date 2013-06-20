@@ -11,35 +11,35 @@ using cutecat::FromStatic;
 TEST (TrimTest, TestNormalTrim) { 
 
 	String sbase = FromStatic("foo bar"), s = sbase;
-	Trim(sbase);
+	sbase <= Trim(sbase);
 	ASSERT_EQ(sbase, s);
 
 	s = FromStatic(" foo bar");
-	Trim(s);
+	s <= Trim(s);
 	ASSERT_EQ(s, sbase);
 
 	s = FromStatic("foo bar ");
-	Trim(s);
+	s <= Trim(s);
 	ASSERT_EQ(s, sbase);
 	
 	s = FromStatic("    foo bar   ");
-	Trim(s);
+	s <= Trim(s);
 	ASSERT_EQ(s, sbase);
 
 	s = FromStatic(" \t \t  foo bar   \n");
-	Trim(s);
+	s <= Trim(s);
 	ASSERT_EQ(s, sbase);
 
 	s = String();
-	Trim(s);
+	s <= Trim(s);
 	ASSERT_EQ(s, String());
 
 	s = FromStatic("  \t\n  ");
-	Trim(s);
+	s <= Trim(s);
 	ASSERT_EQ(s, String());
 
 	s = FromStatic("  a  ");
-	Trim(s);
+	s <= Trim(s);
 	ASSERT_EQ(s, String(FromStatic("a")));
 }
 
@@ -48,7 +48,7 @@ TEST (TrimTest, TestNormalTrim) {
 TEST (TrimTest, TestPredicatedNormalTrim) { 
 
 	String s = FromStatic("@\t@\t foo bar@ @*\n");
-	Trim(s, [](char c) {
+	s <= Trim(s, [](char c) {
 		return c == '@' || c == '\t' || c == '*' || c == '\n';
 	});
 

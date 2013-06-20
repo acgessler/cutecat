@@ -41,6 +41,8 @@ Usage: TODO
 
 namespace cutecat {
 
+	typedef std::ptrdiff_t signed_index;
+
 	template<typename T> class BaseString;
 
 	namespace detail {
@@ -226,6 +228,37 @@ namespace cutecat {
 	template<typename T>
 	class BaseStringSlice;
 
+
+	//----------------------------------------------------------------------------------------
+	/** Represents a string or slice index that starts from the back.
+	 *
+	 *  @code
+	 *  FromBack(0) // represents the character that is just behind the end of the slice
+	 *  FromBack(1) // represents the last character
+	 *  @endcode
+	 */
+	//----------------------------------------------------------------------------------------
+	class FromBack
+	{
+	public:
+
+		FromBack(const signed_index index)
+			: index(index)
+		{
+		}
+
+	public:
+
+		operator signed_index() const {
+			return index;
+		}
+
+	private:
+
+		const signed_index index;
+	};
+
+
 	//----------------------------------------------------------------------------------------
 	/** TODO
 	 */
@@ -239,7 +272,7 @@ namespace cutecat {
 
 	private:
 
-		BaseStringSliceMaybeConst(std::size_t starti, std::size_t endi, BaseString<T>& src)
+		BaseStringSliceMaybeConst(signed_index starti, signed_index endi, BaseString<T>& src)
 			: starti(starti)
 			, endi(endi)
 			, src(src)
@@ -249,8 +282,8 @@ namespace cutecat {
 
 	private:
 
-		const std::size_t starti;
-		const std::size_t endi;
+		const signed_index starti;
+		const signed_index endi;
 		BaseString<T>& src;
 	};
 
@@ -287,8 +320,8 @@ namespace cutecat {
 			if(src.flags & BaseString<T>::FLAG_STATIC) {
 				src._make_nonstatic();
 			}
-			data = src.data + other.starti;
-			data_end = src.data + other.endi;
+			data		= (other.starti < 0 ? src.end()+1 : src.begin()) + other.starti;
+			data_end	= (other.endi   < 0 ? src.end()+1 : src.begin()) + other.endi;
 		}
 
 	public:
@@ -486,9 +519,9 @@ namespace cutecat {
 
 		BaseStringSlice(const BaseStringSliceMaybeConst<T>&& other)
 		{
-			const T* const s = other.src.begin();
-			data = s + other.starti;
-			data_end = s + other.endi;
+			const T* const s = other.src.begin(), const *const e = other.src.end();
+			data		= (other.starti < 0 ? e+1 : s) + other.starti;
+			data_end	= (other.endi   < 0 ? e+1 : s) + other.endi;
 		}
 
 	public:
@@ -906,10 +939,12 @@ namespace cutecat {
 
 
 	public:
-
-
-		// ---------------------------------------------------------------------
-		/** TODO */
+	
+		// ------------------------------- --------------------------------------
+		/** These overloads exist to catch programming errors with std::size_t
+		 *  passed as index arguments. If the indices are incorrect (i.e. 
+		 *  uninitialized) they could upon promotion to signed_index yield a
+		 *  valid value*/
 		// ------------------------------- --------------------------------------
 		BaseStringSliceMaybeConst<T> operator()(std::size_t begini, std::size_t endi) {
 			assert(begini <= endi && endi <= length());
@@ -918,8 +953,93 @@ namespace cutecat {
 
 
 		BaseStringSlice<const T> operator()(std::size_t begini, std::size_t endi) const {
+			assert(begini <= endi && endi <= length());
 			return BaseStringSlice<const T>(data + begini, data + endi);
 		} 
+
+
+		// ---------------------------------------------------------------------
+		/** Obtains a slice of the string using backwards notation.
+		 *
+		 *  Usage:
+		 *  @code
+		 *  using cutecat::FromBack;
+		 *
+		 *  String st = ...;
+		 *  st(FromBack(4), FromBack(1)) <= "abc";
+		 *  @endcode
+		 *
+		 *  @param[in] begini	#cutecat::FromBack instance that specifies the first 
+		 *                      character of the slice (inclusive).
+		 *  @param[in] endi		#cutecat::FromBack instance that specifies the last 
+		 *                      character of the slice (exclusive).
+		 *  @return Slice (begini,endi]
+		 */
+		// ------------------------------- --------------------------------------
+		BaseStringSliceMaybeConst<T> operator()(const FromBack& begini, const FromBack& endi) {
+			assert(ValidSlice(begini, endi));
+			return BaseStringSliceMaybeConst<T>(begini, endi, *this);
+		}
+
+
+		BaseStringSlice<const T> operator()(const FromBack& begini, const FromBack& endi) const {
+			assert(ValidSlice(begini, endi));
+			return BaseStringSlice<const T>(data + begini, data + endi);
+		} 
+
+
+		// ------------------------------- --------------------------------------
+		BaseStringSliceMaybeConst<T> operator()(const FromBack& begini, std::size_t endi) {
+			assert(ValidSlice(begini, endi));
+			return BaseStringSliceMaybeConst<T>(begini, endi, *this);
+		}
+
+
+		BaseStringSlice<const T> operator()(const FromBack& begini, std::size_t endi) const {
+			assert(ValidSlice(begini, endi));
+			return BaseStringSlice<const T>(data + begini, data + endi);
+		} 
+
+
+		// ------------------------------- --------------------------------------
+		BaseStringSliceMaybeConst<T> operator()(std::size_t begini, const FromBack& endi) {
+			assert(ValidSlice(begini, endi));
+			return BaseStringSliceMaybeConst<T>(begini, endi, *this);
+		}
+
+
+		BaseStringSlice<const T> operator()(std::size_t begini, const FromBack& endi) const {
+			assert(ValidSlice(begini, endi));
+			return BaseStringSlice<const T>(data + begini, data + endi);
+		} 
+
+
+		// ---------------------------------------------------------------------
+		/** TODO */
+		// ------------------------------- --------------------------------------
+		BaseStringSliceMaybeConst<T> operator()(std::size_t index) {
+			assert(ValidSlice(index,index));
+			return BaseStringSliceMaybeConst<T>(data + index, data + index);
+		}
+
+
+		BaseStringSlice<const T> operator()(std::size_t index) const {
+			assert(ValidSlice(index,index));
+			return BaseStringSlice<const T>(data + index, data + index);
+		} 
+
+
+		BaseStringSliceMaybeConst<T> operator()(const FromBack& index) {
+			assert(ValidSlice(index,index));
+			return BaseStringSliceMaybeConst<T>(data + index, data + index);
+		}
+
+
+		BaseStringSlice<const T> operator()(const FromBack& index) const {
+			assert(ValidSlice(index,index));
+			return BaseStringSlice<const T>(data + index, data + index);
+		} 
+
 
 	public:
 
@@ -1425,7 +1545,7 @@ namespace cutecat {
 	 */
 	//----------------------------------------------------------------------------------------
 	template <typename T>
-	inline bool Trim(BaseString<T>& d)
+	inline BaseStringSlice<const T> Trim(const BaseString<T>& d)
 	{
 		const char* const sz = d.begin(), *cur = sz;
 
@@ -1455,11 +1575,7 @@ namespace cutecat {
 			++right;
 		}
 
-		if(left > 0 || right > 0) {
-			d <= d(left,len-right); 
-			return true;
-		}
-		return false;
+		return d(left,len-right); 
 	}
 
 
@@ -1470,7 +1586,7 @@ namespace cutecat {
 	 */
 	//----------------------------------------------------------------------------------------
 	template <typename T, typename TLambda>
-	inline bool Trim(BaseString<T>& d, TLambda predicate
+	inline BaseStringSlice<const T> Trim(const BaseString<T>& d, TLambda predicate
 		// avoid use of std::function because it may be slower
 	) 
 	{
@@ -1496,12 +1612,7 @@ namespace cutecat {
 			++right;
 		}
 		
-		assert(back_cur >= cur);
-		if(left > 0 || right > 0) {
-			d <= d(left,len-right); 
-			return true;
-		}
-		return false;
+		return d(left,len-right); 
 	}
 
 
