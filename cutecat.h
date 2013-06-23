@@ -242,20 +242,20 @@ namespace cutecat {
 	{
 	public:
 
-		FromBack(const signed_index index)
+		FromBack(const std::size_t index)
 			: index(index)
 		{
 		}
 
 	public:
 
-		operator signed_index() const {
+		operator std::size_t() const {
 			return index;
 		}
 
 	private:
 
-		const signed_index index;
+		const std::size_t index;
 	};
 
 
@@ -1037,9 +1037,10 @@ namespace cutecat {
 		// ------------------------------- --------------------------------------
 		BaseStringSliceMaybeConst<T> operator()(const FromBack& begini, const FromBack& endi) {
 			assert(_is_valid_slice(begini, endi));
+			const std::size_t len = length();
 			return BaseStringSliceMaybeConst<T>(
-				(begini >= 0 ? begini : length() + begini), 
-				(endi   >= 0 ? endi   : length() + endi),
+				len - begini,
+				len - endi
 				*this
 			);
 		}
@@ -1047,9 +1048,12 @@ namespace cutecat {
 
 		BaseStringSlice<const T> operator()(const FromBack& begini, const FromBack& endi) const {
 			assert(_is_valid_slice(begini, endi));
+
+			// TODO: keep data end pointer?
+			const std::size_t len = length();
 			return BaseStringSlice<const T>(
-				data + (begini >= 0 ? begini : length() + begini), 
-				data + (endi   >= 0 ? endi   : length() + endi)
+				data + len - begini,
+				data + len - endi
 			);
 		} 
 
@@ -1057,26 +1061,26 @@ namespace cutecat {
 		// ------------------------------- --------------------------------------
 		BaseStringSliceMaybeConst<T> operator()(const FromBack& begini, std::size_t endi) {
 			assert(_is_valid_slice(begini, endi));
-			return BaseStringSliceMaybeConst<T>((begini >= 0 ? begini : length() + begini), endi, *this);
+			return BaseStringSliceMaybeConst<T>(length() - begini, endi, *this);
 		}
 
 
 		BaseStringSlice<const T> operator()(const FromBack& begini, std::size_t endi) const {
 			assert(_is_valid_slice(begini, endi));
-			return BaseStringSlice<const T>(data + (begini >= 0 ? begini : length() + begini), data + endi);
+			return BaseStringSlice<const T>(cend() - begini, data + endi);
 		} 
 
 
 		// ------------------------------- --------------------------------------
 		BaseStringSliceMaybeConst<T> operator()(std::size_t begini, const FromBack& endi) {
 			assert(_is_valid_slice(begini, endi));
-			return BaseStringSliceMaybeConst<T>(begini, (endi >= 0 ? endi : length() + endi), *this);
+			return BaseStringSliceMaybeConst<T>(begini, length() - endi, *this);
 		}
 
 
 		BaseStringSlice<const T> operator()(std::size_t begini, const FromBack& endi) const {
 			assert(_is_valid_slice(begini, endi));
-			return BaseStringSlice<const T>(data + begini, data + (endi >= 0 ? endi : length() + endi));
+			return BaseStringSlice<const T>(data + begini, cend() - endi);
 		} 
 
 
@@ -1097,13 +1101,13 @@ namespace cutecat {
 
 		BaseStringSliceMaybeConst<T> operator()(const FromBack& index) {
 			assert(_is_valid_slice(index,index));
-			return BaseStringSliceMaybeConst<T>(data + index, data + index);
+			return BaseStringSliceMaybeConst<T>(cend() - index, cend() - index);
 		}
 
 
 		BaseStringSlice<const T> operator()(const FromBack& index) const {
 			assert(_is_valid_slice(index,index));
-			return BaseStringSlice<const T>(data + index, data + index);
+			return BaseStringSlice<const T>(cend() - index, cend() - index);
 		} 
 
 
@@ -1201,6 +1205,12 @@ namespace cutecat {
 		}
 
 
+		T operator[] (const FromBack& index) const {
+			assert(index > 0 && index <= length());
+			return cend()[-index];
+		}
+
+
 	public:
 
 
@@ -1246,18 +1256,18 @@ namespace cutecat {
 
 
 		bool _is_valid_slice(const FromBack& begini_tag, std::size_t endi) const {
-			const std::size_t begini = (begini_tag >= 0 ? begini_tag : length() + begini_tag + 1);
+			const std::size_t begini = length() - begini_tag;
 			return begini <= endi && endi <= length();
 		}
 
 		bool _is_valid_slice(std::size_t begini, const FromBack& endi_tag) const {
-			const std::size_t endi = (endi_tag >= 0 ? endi_tag : length() + endi_tag + 1);
+			const std::size_t endi = length() - endi_tag;
 			return begini <= endi && endi <= length();
 		}
 
 		bool _is_valid_slice(const FromBack& begini_tag, const FromBack& endi_tag) const {
-			const std::size_t begini = (begini_tag >= 0 ? begini_tag : length() + begini_tag + 1);
-			const std::size_t endi = (endi_tag >= 0 ? endi_tag : length() + endi_tag + 1);
+			const std::size_t begini = length() - begini_tag;
+			const std::size_t endi = length() - endi_tag;
 			return begini <= endi && endi <= length();
 		}
 
