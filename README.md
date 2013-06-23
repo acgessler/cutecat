@@ -16,6 +16,7 @@ Slices can be used almost interchangeable with strings.
 ````c++
 using cutecat::String;
 using cutecat::FromRaw;
+using cutecat::Back;
 
 String st = FromRaw("apple banana"); 
 
@@ -28,14 +29,14 @@ st(0,0) <= "cherry:";
 
 
 // append ":peach"
-st(-1,-1) <= ":peach";
-// without slices: st = st & ":peach";
+st(Back(0)) <= ":peach";
+// without slices: st = st <cat> ":peach";
 
 // remove "apple:" by substituting the empty string
 st(8,14) <= "";
 
 // or lets just make a new string by putting together some (overlapping) slices
-String result = st(1,6) <cat> st(2,7) <cat> st(0, -1);
+String result = st(1,6) <cat> st(2,7) <cat> st(0, Back(1));
 
 ````
 
@@ -61,7 +62,7 @@ st = st <cat> ":banana";
 
 ````
 
-Operations: Trim, Split, Join, Find, Format, Parse
+Operations: Trim, Split, Join, Find
 -------
 
 _cutecat_ contains a library of useful string operations, almost all of which are unnecessarily hard to do
@@ -85,8 +86,31 @@ for(auto& slice : parts) {
 
 // now join them again, using a semicolon as separator
 String result = Join("; ", parts);
+````
+
+Operations: Format, Parse
+-------
+
+Type-safe `printf` and `scanf` replacements. A bit like `boost.format`,  yet more lightweight.
 
 
+````
+using cutecat::String;
+using cutecat::Format;
+
+
+String s2 = Format(" {0} -- {1}, Age: {2}" 
+  &= "Some Name" 
+  &= "my-email@my-hoster.net"
+  &= 23);
+// s2 == "Some Name -- my-email@my-hoster.net, Age: 23"
+ 
+
+String name, email;
+int age;
+if(Extract("{0} -- {1}, Age: {2}" &=name &=email &=age)) {
+ 
+}
 ````
 
 
@@ -97,6 +121,7 @@ With `std::string`, it is oftentimes a hurdle that string literals, which are in
 assuming sane programmers will not be mutated for the entire duration of the program, are needlessly
 copied as to please APIs demanding such thing. With _cutecat_, static strings are explicitly annotated and 
 copied the first time they are being written to.
+
 ````c++
 using cutecat::String;
 using cutecat::FromStatic;
@@ -106,52 +131,7 @@ st.set(0) = 'L'; // this does a copy
 
 ````
 
+std::string adapter
+-------
 
-````c++
-using cutecat::String;
-
- 
-// 1) efficient (lazy) string concatenation using expression templates
-String s1  = "3535" <cat> ' ' <cat> 12; // type StringExpression
- 
- 
-// 2) lightweight printf
-int someInt = 2;
-String s2 = s1 <cat> Fill(" {0} -- {1}, {2}*" 
-  &0= "Alexander Gessler" 
-  &1= "my-email@my-hoster.net"
-	&2= someInt);
- 
-// 3) lightweight scanf
-String name, email;
-if(Extract("{0} -- {1}" &0=name &1=email)) {
-}
- 
- 
-// 4) slice indexing and deletion
-s1[1 <to> 3] = "blubb"; // type StringSlice
-s2[1 <to> -2] = "blubb";
-s1[0 <to> 3] = ""; // no re-allocation for this
- 
- 
-// 5) zero-overhead for static string literals
-constexpr String stack = "sss";
-String s = stack[1 <to> 2]; // still no copy
-s[0] = 2; // now a copy
- 
-// 6) std::string-compatible interface (complete source compatibility)
-String::size_type s = stack.find_first_of(0);
- 
-// 7) much cooler library functions:
-Trim()
-TrimLeft()
-TrimRight()
-ForEach(s1, "blubb", [] (String sl) {
-})
- 
-std::vector<String> s;
-Split(',', s, Trim) // automatically reserves
-Join(', ', s);
- 
-// 8) can be converted to std::string (this has overhead, though)
-std::string ss = s;
+TODO
