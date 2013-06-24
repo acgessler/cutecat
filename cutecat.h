@@ -387,6 +387,12 @@ namespace cutecat {
 		// ---------------------------------------------------------------------
 		BaseStringSlice& operator <= (T fill)
 		{
+			// handle the most common case when assigning a character
+			// a slice of size 1 (i.e. character substitution)
+			if(data+1 == data_end) {
+				*data = fill;
+				return *this;
+			}
 			src._sub<false>(data, data_end, &fill, &fill+1);
 			return *this;
 		}
@@ -604,6 +610,22 @@ namespace cutecat {
 		}
 
 	public:
+
+		// ---------------------------------------------------------------------
+		/** TODO */
+		// ---------------------------------------------------------------------
+		const T* begin() const {
+			return data;
+		}
+
+
+		// ---------------------------------------------------------------------
+		/** TODO */
+		// ---------------------------------------------------------------------
+		const T* end() const {
+			return data_end;
+		}
+
 
 		// ---------------------------------------------------------------------
 		/** TODO */
@@ -1156,8 +1178,6 @@ namespace cutecat {
 		}
 
 
-		// TODO: FromBack versions
-
 	public:
 
 		// std::iterator_traits<T> supplies the necessary iterator meta info for
@@ -1167,6 +1187,9 @@ namespace cutecat {
 		/** TODO */
 		// ---------------------------------------------------------------------
 		T* begin() {
+			if(flags & FLAG_STATIC) {
+				_make_nonstatic();
+			}
 			return data;
 		}
 
@@ -1175,6 +1198,25 @@ namespace cutecat {
 		/** TODO */
 		// ---------------------------------------------------------------------
 		T* end() {
+			if(flags & FLAG_STATIC) {
+				_make_nonstatic();
+			}
+			return data + length();
+		}
+
+
+		// ---------------------------------------------------------------------
+		/** TODO */
+		// ---------------------------------------------------------------------
+		const T* begin() const {
+			return data;
+		}
+
+
+		// ---------------------------------------------------------------------
+		/** TODO */
+		// ---------------------------------------------------------------------
+		const T* end() const {
 			return data + length();
 		}
 
@@ -1290,6 +1332,8 @@ namespace cutecat {
 				intern.len = static_cast<T>(len);
 				return;
 			}
+
+			flags = (flags & ~FLAG_STATIC);
 
 			ext.capacity = len + 1;
 			data = new char[ext.capacity];

@@ -7,7 +7,7 @@
 
 namespace {
 
-static const char* lorem_ipsum = "Lorem ipsum dolor sit amet, consetetur sadipscing elitr, "
+static const char lorem_ipsum[] = "Lorem ipsum dolor sit amet, consetetur sadipscing elitr, "
 	"sed diam nonumy eirmod tempor invidunt ut labore et dolore magna aliquyam erat, "
 	"sed diam voluptua. At vero eos et accusam et justo duo dolores et ea rebum. Stet "
 	"clita kasd gubergren, no sea takimata sanctus est Lorem ipsum dolor sit amet. "
@@ -207,6 +207,7 @@ TEST (StringTest, TestStringComparison) {
 	cutecat::BaseString<char> str2 = cutecat::FromRaw(c);
 	cutecat::BaseString<char> str3 = cutecat::FromRaw(c);
 	str3(0,1) <= 'a';
+	str3(1,2) <= 'a';
 
 	// string == string
 	ASSERT_EQ(str, str2);
@@ -489,6 +490,63 @@ TEST (StringTest, TestStringSlicingCompactSyntaxBack) {
 	str2(0,Back(0)) <= str3(6,12);
 	CompareAndCheckLengthConsistency(str2,"abcdef");
 	CompareAndCheckLengthConsistency(str3,"aaaaaaabcdefaaaaaa");
+}
+
+
+//----------------------------------------------------------------------------------------
+TEST (StringTest, TestStringForeach) { 
+	const char* c = lorem_ipsum;
+
+	//  TODO: requires C++11
+	cutecat::BaseString<char> str2 = cutecat::FromStatic(c);
+
+	int cnt = 0;
+	int len = 0;
+	for(char c : str2) {
+		cnt += c;
+		++len;
+	}
+
+	int cnt2 = 0;
+	int len2 = 0;
+
+	// this includes the zero-terminal!
+	for(char c : lorem_ipsum) {
+		cnt2 += c;
+		++len2;
+	}
+
+	ASSERT_EQ(len, len2-1);
+	ASSERT_EQ(cnt, cnt2);
+}
+
+
+//----------------------------------------------------------------------------------------
+TEST (StringTest, TestStringSliceForeach) { 
+	const char* c = lorem_ipsum;
+	using cutecat::Back;
+
+	//  TODO: requires C++11
+	cutecat::BaseString<char> str2 = cutecat::FromStatic(c);
+
+	int cnt = 0;
+	int len = 0;
+	for(char c : str2.get(0, Back(0))) {
+		cnt += c;
+		++len;
+	}
+
+	int cnt2 = 0;
+	int len2 = 0;
+
+	// this includes the zero-terminal!
+	for(char c : lorem_ipsum) {
+		cnt2 += c;
+		++len2;
+	}
+
+	ASSERT_EQ(len, len2-1);
+	ASSERT_EQ(cnt, cnt2);
 }
 
 /* vi: set shiftwidth=4 tabstop=4: */ 
