@@ -429,10 +429,10 @@ TEST (StringTest, TestStringSlicingCompactSyntax) {
 
 
 //----------------------------------------------------------------------------------------
-TEST (StringTest, TestStringSlicingCompactSyntaxFromBack) { 
+TEST (StringTest, TestStringSlicingCompactSyntaxBack) { 
 	const char* c = lorem_ipsum;
 
-	using cutecat::FromBack;
+	using cutecat::Back;
 	cutecat::BaseString<char> str1 = cutecat::FromRaw(c);
 
 	// test basic slice access
@@ -464,29 +464,29 @@ TEST (StringTest, TestStringSlicingCompactSyntaxFromBack) {
 	CompareAndCheckLengthConsistency(str3,"aaaaaaabcdefaaaaaa");
 
 	// extract middle part of str3 and assign to str2 using normal assignment
-	str2(0,FromBack(0)) <= str3(6,12);
+	str2(0,Back(0)) <= str3(6,12);
 	//str2 = str3.get(6,12);
 	CompareAndCheckLengthConsistency(str2,"abcdef");
 	CompareAndCheckLengthConsistency(str3,"aaaaaaabcdefaaaaaa");
 
 	// duplicate str2 by appending to the end
-	str2(FromBack(0),FromBack(0)) <= str2;
+	str2(Back(0),Back(0)) <= str2;
 	CompareAndCheckLengthConsistency(str2,"abcdefabcdef");
 
 	// do that again, but this time insert at the second last position
-	str2(FromBack(1),FromBack(1)) <= str2;
+	str2(Back(1),Back(1)) <= str2;
 	CompareAndCheckLengthConsistency(str2,"abcdefabcdeabcdefabcdeff");
 
 	// do that again, but this time replace everything between the first and last character
-	str2(1,FromBack(1)) <= str2;
+	str2(1,Back(1)) <= str2;
 	CompareAndCheckLengthConsistency(str2,"aabcdefabcdeabcdefabcdefff");
 
 	// do that again, but this time set everything between the first and last character nil
-	str2(1,FromBack(1)) <= cutecat::BaseString<char>(cutecat::FromStatic("")); // TODO
+	str2(1,Back(1)) <= cutecat::BaseString<char>(cutecat::FromStatic("")); // TODO
 	CompareAndCheckLengthConsistency(str2,"af");
 
 	// extract middle part of str3 and assign to str2 using slice assignment
-	str2(0,FromBack(0)) <= str3(6,12);
+	str2(0,Back(0)) <= str3(6,12);
 	CompareAndCheckLengthConsistency(str2,"abcdef");
 	CompareAndCheckLengthConsistency(str3,"aaaaaaabcdefaaaaaa");
 }

@@ -230,12 +230,8 @@ namespace cutecat {
 
 
 	//----------------------------------------------------------------------------------------
-	/** Represents a string or slice index that starts from the back.
-	 *
-	 *  @code
-	 *  FromBack(0) // represents the character that is just behind the end of the slice
-	 *  FromBack(1) // represents the last character
-	 *  @endcode
+	/** Represents a string or slice index that starts from the back. Use Back() to construct
+	 *  instances.
 	 */
 	//----------------------------------------------------------------------------------------
 	class FromBack
@@ -257,6 +253,20 @@ namespace cutecat {
 
 		const std::size_t index;
 	};
+
+
+	//----------------------------------------------------------------------------------------
+	/** Represents a string or slice index that starts from the back.
+	 *
+	 *  @code
+	 *  Back(0) // represents the character that is just behind the end of the slice
+	 *  Back(1) // represents the last character
+	 *  @endcode
+	 */
+	//----------------------------------------------------------------------------------------
+	inline FromBack Back(const std::size_t index) {
+		return FromBack(index);
+	}
 
 
 	//----------------------------------------------------------------------------------------
@@ -999,12 +1009,7 @@ namespace cutecat {
 
 	public:
 	
-		// ------------------------------- --------------------------------------
-		/** These overloads exist to catch programming errors with std::size_t
-		 *  passed as index arguments. If the indices are incorrect (i.e. 
-		 *  uninitialized) they could upon promotion to signed_index yield a
-		 *  valid value*/
-		// ------------------------------- --------------------------------------
+		// ---------------------------------------------------------------------
 		BaseStringSliceMaybeConst<T> operator()(std::size_t begini, std::size_t endi) {
 			assert(begini <= endi && endi <= length());
 			return BaseStringSliceMaybeConst<T>(begini, endi, *this);
@@ -1040,7 +1045,7 @@ namespace cutecat {
 			const std::size_t len = length();
 			return BaseStringSliceMaybeConst<T>(
 				len - begini,
-				len - endi
+				len - endi,
 				*this
 			);
 		}
@@ -1089,7 +1094,7 @@ namespace cutecat {
 		// ------------------------------- --------------------------------------
 		BaseStringSliceMaybeConst<T> operator()(std::size_t index) {
 			assert(_is_valid_slice(index,index));
-			return BaseStringSliceMaybeConst<T>(data + index, data + index);
+			return BaseStringSliceMaybeConst<T>(index,  index, *this);
 		}
 
 
@@ -1101,7 +1106,8 @@ namespace cutecat {
 
 		BaseStringSliceMaybeConst<T> operator()(const FromBack& index) {
 			assert(_is_valid_slice(index,index));
-			return BaseStringSliceMaybeConst<T>(cend() - index, cend() - index);
+			const std::size_t i = length() - index;
+			return BaseStringSliceMaybeConst<T>(i,i);
 		}
 
 
@@ -1117,42 +1123,36 @@ namespace cutecat {
 		// ---------------------------------------------------------------------
 		/** TODO */
 		// ------------------------------- --------------------------------------
-		BaseStringSlice<T> set(std::size_t begini, std::size_t endi) {
-			assert(begini <= endi && endi <= length());
-
-			if (flags & FLAG_STATIC) { // copy-on-write
-				_make_nonstatic();
-			}
-			return BaseStringSlice<T>(data + begini, data + endi, *this);
+		template<typename TFirst, typename TSecond>
+		BaseStringSlice<T> set(TFirst begini, TSecond endi) {
+			return BaseStringSlice<T>((*this)(begini, endi));
 		}
 
 
 		// ---------------------------------------------------------------------
 		/** TODO */
 		// ---------------------------------------------------------------------
-		BaseStringSlice<const T> get(std::size_t begini, std::size_t endi) const {
-			return BaseStringSlice<const T>(data + begini, data + endi);
+		template<typename TFirst, typename TSecond>
+		BaseStringSlice<const T> get(TFirst begini, TSecond endi) const {
+			return BaseStringSlice<const T>((*this)(begini, endi));
 		} 
 
 
 		// ---------------------------------------------------------------------
 		/** TODO */
 		// ---------------------------------------------------------------------
-		BaseStringSlice<T> set(std::size_t index) {
-			assert(index < length());
-			if (flags & FLAG_STATIC) { // copy-on-write
-				_make_nonstatic();
-			}
-			return BaseStringSlice<T>(data + index, data + index);
+		template<typename TFirst>
+		BaseStringSlice<T> set(TFirst index) {
+			return BaseStringSlice<T>((*this)(index));
 		}
 
 
 		// ---------------------------------------------------------------------
 		/** TODO */
 		// ---------------------------------------------------------------------
-		BaseStringSlice<const T> get(std::size_t index) const {
-			assert(_is_valid_slice(index,index));
-			return BaseStringSlice<const T>(data + index, data + index);
+		template<typename TFirst>
+		BaseStringSlice<const T> get(TFirst index) const {
+			return BaseStringSlice<const T>((*this)(index));
 		}
 
 
