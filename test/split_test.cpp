@@ -37,10 +37,23 @@ TEST (SplitTest, TestSplitToSlice) {
 
 	// split string with multiple split characters
 	slices.clear();
-	sbase = FromStatic(" foo  bar  foo ");
+	sbase = FromStatic(" foo  bar  fob ");
 	Split(' ', sbase, std::back_inserter(slices));
 	ASSERT_EQ(3,slices.size());
 	ASSERT_EQ("foo",slices[0]);
 	ASSERT_EQ("bar",slices[1]);
 	ASSERT_EQ("fob",slices[2]);
+
+	// split string with multiple split characters, but do not merge adjacent characters
+	slices.clear();
+	sbase = FromStatic(" foo  bar  fob ");
+	Split(' ', sbase, std::back_inserter(slices), false);
+	ASSERT_EQ(7,slices.size());
+	ASSERT_EQ("",slices[0]);
+	ASSERT_EQ("foo",slices[1]);
+	ASSERT_EQ("",slices[2]);
+	ASSERT_EQ("bar",slices[3]);
+	ASSERT_EQ("",slices[4]);
+	ASSERT_EQ("fob",slices[5]);
+	ASSERT_EQ("",slices[6]);
 }

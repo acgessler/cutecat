@@ -1768,31 +1768,49 @@ namespace cutecat {
 		const T* data = src.get_array();
 		std::size_t idx = 0u, last = 0u, last_non_split = 0u;
 
+		// merging of adjacent split characters
 		if(merge_adjacent) {
-			while(*data == split) ++data;
-		}
+			while(*data == split) {
+				++last;
+				++idx;
+				++data;
+			}
 
-		while(*data) {
-			if(*data == split) {
-				if(!merge_adjacent || data[1] != split) {
-					*outp++ = src.get(last, last_non_split + 1);
-					last = idx + 1;
+			while(*data) {
+				++idx;
+				if(*data == split) {
+					if(data[1] != split) {
+						*outp++ = src.get(last, last_non_split);
+						last = idx;
+					}
 				}
-				if(!merge_adjacent) {
+				else {
 					last_non_split = idx;
 				}
+				++data;
 			}
-			else {
-				last_non_split = idx;
+
+			if(last_non_split == idx && last < last_non_split) {
+				*outp++ = src.get(last, FromBack(0));
 			}
-			++data;
-			++idx;
+
+			return outp;
 		}
 
-		if(last_non_split == idx - 1 && (last < last_non_split || !merge_adjacent)) {
+		// no merging of adjacent split characters
+		while(*data) {
+			++idx;
+			if(*data == split) {
+				*outp++ = src.get(last, last_non_split);
+				last = idx;
+			}
+			last_non_split = idx;
+			++data;
+		}
+
+		if(last_non_split == idx) {
 			*outp++ = src.get(last, FromBack(0));
 		}
-
 		return outp;
 	}
 
