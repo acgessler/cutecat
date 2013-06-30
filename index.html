@@ -1,0 +1,172 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="chrome=1">
+    <title>Cutecat by acgessler</title>
+
+    <link rel="stylesheet" href="stylesheets/styles.css">
+    <link rel="stylesheet" href="stylesheets/pygment_trac.css">
+    <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+    <!--[if lt IE 9]>
+    <script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+  </head>
+  <body>
+    <div class="wrapper">
+      <header>
+        <h1>Cutecat</h1>
+        <p>The C++ string library that all the cute kittens use. It is highly efficient, uses nice syntax, is std::string-compatible and has all the string tools you've always missed in C++.</p>
+
+        <p class="view"><a href="https://github.com/acgessler/cutecat">View the Project on GitHub <small>acgessler/cutecat</small></a></p>
+
+
+        <ul>
+          <li><a href="https://github.com/acgessler/cutecat/zipball/master">Download <strong>ZIP File</strong></a></li>
+          <li><a href="https://github.com/acgessler/cutecat/tarball/master">Download <strong>TAR Ball</strong></a></li>
+          <li><a href="https://github.com/acgessler/cutecat">View On <strong>GitHub</strong></a></li>
+        </ul>
+      </header>
+      <section>
+        <h1>
+<a name="cutecat" class="anchor" href="#cutecat"><span class="octicon octicon-link"></span></a>cutecat</h1>
+
+<p>The C++ string library that all the cute kittens use. It is highly efficient, uses nice syntax, 
+is <code>std::string</code>-compatible and has all the string tools you've always missed in C++.</p>
+
+<h2>
+<a name="slices" class="anchor" href="#slices"><span class="octicon octicon-link"></span></a>Slices</h2>
+
+<p>With <code>std::string</code>, inserting, replacing or adding to strings is as with all <code>std::</code> containers
+a bit tedious. <em>cutecat</em> uses slices to enable insertion, erasure and substring operation. To quickly refer
+to positions relative to the end of the string, negative indices (think Python) are used. </p>
+
+<p>Slices can be used almost interchangeable with strings.</p>
+
+<div class="highlight"><pre><span class="k">using</span> <span class="n">cutecat</span><span class="o">::</span><span class="n">String</span><span class="p">;</span>
+<span class="k">using</span> <span class="n">cutecat</span><span class="o">::</span><span class="n">FromRaw</span><span class="p">;</span>
+<span class="k">using</span> <span class="n">cutecat</span><span class="o">::</span><span class="n">Back</span><span class="p">;</span>
+
+<span class="n">String</span> <span class="n">st</span> <span class="o">=</span> <span class="n">FromRaw</span><span class="p">(</span><span class="s">"apple banana"</span><span class="p">);</span> 
+
+<span class="c1">// replace the space by a colon</span>
+<span class="n">st</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span><span class="mi">4</span><span class="p">)</span> <span class="o">&lt;=</span> <span class="s">":"</span><span class="p">;</span>
+<span class="c1">// st is now "apple:banana"</span>
+
+<span class="c1">// prepend "cherry:"</span>
+<span class="n">st</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span><span class="mi">0</span><span class="p">)</span> <span class="o">&lt;=</span> <span class="s">"cherry:"</span><span class="p">;</span>
+
+
+<span class="c1">// append ":peach"</span>
+<span class="n">st</span><span class="p">(</span><span class="n">Back</span><span class="p">(</span><span class="mi">0</span><span class="p">))</span> <span class="o">&lt;=</span> <span class="s">":peach"</span><span class="p">;</span>
+<span class="c1">// without slices: st = st &lt;cat&gt; ":peach";</span>
+
+<span class="c1">// remove "apple:" by substituting the empty string</span>
+<span class="n">st</span><span class="p">(</span><span class="mi">8</span><span class="p">,</span><span class="mi">14</span><span class="p">)</span> <span class="o">&lt;=</span> <span class="s">""</span><span class="p">;</span>
+
+<span class="c1">// or lets just make a new string by putting together some (overlapping) slices</span>
+<span class="n">String</span> <span class="n">result</span> <span class="o">=</span> <span class="n">st</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span><span class="mi">6</span><span class="p">)</span> <span class="o">&lt;</span><span class="n">cat</span><span class="o">&gt;</span> <span class="n">st</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span><span class="mi">7</span><span class="p">)</span> <span class="o">&lt;</span><span class="n">cat</span><span class="o">&gt;</span> <span class="n">st</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">Back</span><span class="p">(</span><span class="mi">1</span><span class="p">));</span>
+
+</pre></div>
+
+<h2>
+<a name="lazy-concatenation" class="anchor" href="#lazy-concatenation"><span class="octicon octicon-link"></span></a>Lazy Concatenation</h2>
+
+<p>String concatenation with <em>cutecat</em> uses expression templates to optimize concatenations. String operations
+can thus be expressed  in the simplest possible way without inducing unnecessary copies. </p>
+
+<p>Slices can be used almost interchangeable with strings.</p>
+
+<div class="highlight"><pre><span class="k">using</span> <span class="n">cutecat</span><span class="o">::</span><span class="n">String</span><span class="p">;</span>
+<span class="k">using</span> <span class="n">cutecat</span><span class="o">::</span><span class="n">FromRaw</span><span class="p">;</span>
+
+<span class="c1">// unnecessary copies are elided and all concatenations done in one batch</span>
+<span class="n">String</span> <span class="n">ar</span> <span class="o">=</span> <span class="n">GetSomeString</span><span class="p">()</span> <span class="o">&lt;</span><span class="n">cat</span><span class="o">&gt;</span> <span class="s">", Price: "</span> <span class="o">&lt;</span><span class="n">cat</span><span class="o">&gt;</span> <span class="mi">24</span> <span class="o">&lt;</span><span class="n">cat</span><span class="o">&gt;</span> <span class="s">" USD"</span><span class="p">;</span> <span class="c1">// TODO</span>
+
+<span class="n">String</span> <span class="n">st</span> <span class="o">=</span> <span class="n">FromRaw</span><span class="p">(</span><span class="s">"peach:cherry"</span><span class="p">);</span>
+
+<span class="c1">// the following induces no extra copies at all</span>
+<span class="n">st</span> <span class="o">=</span> <span class="s">"apple:"</span> <span class="o">&lt;</span><span class="n">cat</span><span class="o">&gt;</span> <span class="n">st</span><span class="p">;</span>
+<span class="n">st</span> <span class="o">=</span> <span class="n">st</span> <span class="o">&lt;</span><span class="n">cat</span><span class="o">&gt;</span> <span class="s">":banana"</span><span class="p">;</span>
+
+</pre></div>
+
+<h2>
+<a name="operations-trim-split-join-find" class="anchor" href="#operations-trim-split-join-find"><span class="octicon octicon-link"></span></a>Operations: Trim, Split, Join, Find</h2>
+
+<p><em>cutecat</em> contains a library of useful string operations, almost all of which are unnecessarily hard to do
+with the STL. Many of these algorithms operate much faster than their STL counterparts as they enable the
+use of string slices where the STL would have required full substrings. cutecat operations are generally 
+free functions and found via ADL.</p>
+
+<div class="highlight"><pre><span class="k">using</span> <span class="n">cutecat</span><span class="o">::</span><span class="n">String</span><span class="p">;</span>
+
+<span class="n">String</span> <span class="n">st</span> <span class="o">=</span> <span class="n">GetSomeString</span><span class="p">();</span>
+
+<span class="c1">// split at commas</span>
+<span class="n">std</span><span class="o">::</span><span class="n">vector</span><span class="o">&lt;</span><span class="n">StringSlice</span><span class="o">&gt;</span> <span class="n">parts</span><span class="p">;</span>
+<span class="n">Split</span><span class="p">(</span><span class="n">st</span><span class="p">,</span> <span class="sc">','</span><span class="p">,</span> <span class="n">parts</span><span class="p">);</span> 
+
+<span class="c1">// for all parts: remove whitespace from both sides </span>
+<span class="c1">// (this is done by simply changing the slice window)</span>
+<span class="k">for</span><span class="p">(</span><span class="k">auto</span><span class="o">&amp;</span> <span class="n">slice</span> <span class="o">:</span> <span class="n">parts</span><span class="p">)</span> <span class="p">{</span>
+   <span class="n">slice</span> <span class="o">=</span> <span class="n">TrimSlice</span><span class="p">(</span><span class="n">slice</span><span class="p">);</span> 
+<span class="p">}</span>
+
+<span class="c1">// now join them again, using a semicolon as separator</span>
+<span class="n">String</span> <span class="n">result</span> <span class="o">=</span> <span class="n">Join</span><span class="p">(</span><span class="s">"; "</span><span class="p">,</span> <span class="n">parts</span><span class="p">);</span>
+</pre></div>
+
+<h2>
+<a name="operations-format-parse" class="anchor" href="#operations-format-parse"><span class="octicon octicon-link"></span></a>Operations: Format, Parse</h2>
+
+<p>Type-safe <code>printf</code> and <code>scanf</code> replacements. A bit like <code>boost.format</code>,  yet more lightweight.</p>
+
+<pre><code>using cutecat::String;
+using cutecat::Format;
+
+
+String s2 = Format(" {0} -- {1}, Age: {2}" 
+  &amp;= "Some Name" 
+  &amp;= "my-email@my-hoster.net"
+  &amp;= 23);
+// s2 == "Some Name -- my-email@my-hoster.net, Age: 23"
+
+
+String name, email;
+int age;
+if(Extract("{0} -- {1}, Age: {2}" &amp;=name &amp;=email &amp;=age)) {
+
+}
+</code></pre>
+
+<h2>
+<a name="copy-on-write-for-static-strings" class="anchor" href="#copy-on-write-for-static-strings"><span class="octicon octicon-link"></span></a>Copy-On-Write for static strings</h2>
+
+<p>With <code>std::string</code>, it is oftentimes a hurdle that string literals, which are in static storage and 
+assuming sane programmers will not be mutated for the entire duration of the program, are needlessly
+copied as to please APIs demanding such thing. With <em>cutecat</em>, static strings are explicitly annotated and 
+copied the first time they are being written to.</p>
+
+<div class="highlight"><pre><span class="k">using</span> <span class="n">cutecat</span><span class="o">::</span><span class="n">String</span><span class="p">;</span>
+<span class="k">using</span> <span class="n">cutecat</span><span class="o">::</span><span class="n">FromStatic</span><span class="p">;</span>
+
+<span class="n">String</span> <span class="n">st</span> <span class="o">=</span> <span class="n">FromStatic</span><span class="p">(</span><span class="s">"lorem ipsum ..."</span><span class="p">);</span> <span class="c1">// no copy yet</span>
+<span class="n">st</span><span class="p">.</span><span class="n">set</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span> <span class="o">=</span> <span class="sc">'L'</span><span class="p">;</span> <span class="c1">// this does a copy </span>
+
+</pre></div>
+
+<h2>
+<a name="stdstring-adapter" class="anchor" href="#stdstring-adapter"><span class="octicon octicon-link"></span></a>std::string adapter</h2>
+
+<p>TODO</p>
+      </section>
+      <footer>
+        <p>This project is maintained by <a href="https://github.com/acgessler">acgessler</a></p>
+        <p><small>Hosted on GitHub Pages &mdash; Theme by <a href="https://github.com/orderedlist">orderedlist</a></small></p>
+      </footer>
+    </div>
+    <script src="javascripts/scale.fix.js"></script>
+    
+  </body>
+</html>
