@@ -33,15 +33,24 @@ Usage: TODO
 
 */
 
-#pragma intrinsic(memcpy)
-#define CUTECAT_HAS_DECLTYPE
-
 #ifndef INCLUDED_CUTECAT_H
 #define INCLUDED_CUTECAT_H
 
 namespace cutecat {
 
-	typedef std::ptrdiff_t signed_index;
+	// compiler-specific configuration
+#ifdef _MSC_VER
+
+#	pragma intrinsic(memcpy)
+#	define CUTECAT_HAS_DECLTYPE
+
+#else
+
+#error "Compiler or platform not supported"
+
+#endif
+
+
 
 	template<typename T> class BaseString;
 
@@ -1737,6 +1746,7 @@ namespace cutecat {
 	
 	// String splitting
 
+
 	//----------------------------------------------------------------------------------------
 	/** Split a given string at each occurrence of a split character.
 	 *
@@ -1755,14 +1765,7 @@ namespace cutecat {
 	//----------------------------------------------------------------------------------------
 	template<typename T, typename TOutputIterator>
 	TOutputIterator Split(T split, const BaseString<T>& src, TOutputIterator outp, 
-		bool merge_adjacent = true 
-		 
-		/* FIXME , typename std::enable_if<
-			std::is_assignable<
-				typename std::iterator_traits<TOutputIterator>::value_type,
-				BaseStringSlice<const T>
-			>::value
-		>::type*  = nullptr */
+		bool merge_adjacent = true
 	)
 	{
 		const T* data = src.get_array();
@@ -1813,6 +1816,38 @@ namespace cutecat {
 		}
 		return outp;
 	}
+
+
+	//----------------------------------------------------------------------------------------
+	/** 
+	 * Usage
+	 *
+	 * @code
+	 * String s = ...
+	 * // replace "Apple" by "Peach"
+	 * try {
+	 *		s = Find(s, "Apple");
+	 * } catch(StringNotFound& ex) {
+	 *
+	 * }
+	 *
+	 * @endcode
+	 */
+	//----------------------------------------------------------------------------------------
+#if 0
+	template<typename TStringType, typename TSearchType, typename TOutputIterator>
+	BaseStringSlice<const T> Find(const TStringType& needle, const TSearchType& needle)
+	{
+	}
+
+
+	//----------------------------------------------------------------------------------------
+	//----------------------------------------------------------------------------------------
+	template<typename T, typename TOutputIterator>
+	BaseStringSliceMaybeConst<T> Find(TStringType& needle, const TSearchType& needle)
+	{
+	}
+#endif
 
 
 #if 0
