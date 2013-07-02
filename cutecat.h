@@ -1304,7 +1304,16 @@ namespace cutecat {
 
 
 		// ---------------------------------------------------------------------
-		/** TODO */
+		/** Substitute a given slice of the string by another.
+		 *  @param[in,out] dest_begin_ref Begin of destination slice. Receives
+		 *				the updated beginning in case the string is
+		 *				being reallocated.
+		 *  @param[in,out] dest_end_ref End of destination slice. Receives
+		 *				the updated end pointer in case the string is
+		 *				being reallocated.
+		 *  @param[in]	src_begin Begin of source slice.
+		 *  @param[in]	src_end End of source slice.
+		 */
 		// ---------------------------------------------------------------------
 		template<bool expect_overlapping>
 		void _sub(T*& dest_begin_ref, T*& dest_end_ref, const T* src_begin, const T* src_end)	{
@@ -1442,7 +1451,7 @@ namespace cutecat {
 	//----------------------------------------------------------------------------------------
 	
 	template<template<typename> TLeft, template<typename> TRight, typename T>
-	inline bool operator==(const TLeft<T>& b, const TRight<T>& a) // TODO: check on length etc
+	inline bool operator==(const TLeft<T>& b, const TRight<T>& a) 
 	{
 		const std::size_t len = a.length();
 		if(len != b.length()) {
@@ -1453,7 +1462,7 @@ namespace cutecat {
 
 
 	template<typename T, template<typename> TStringOrSliceType>
-	inline bool operator==(const T* cstr, const TStringOrSliceType<T>& a) // TODO: check on length etc
+	inline bool operator==(const T* cstr, const TStringOrSliceType<T>& a)
 	{
 		const std::size_t len = a.length();
 		if(len != ::strlen(cstr)) {
@@ -1464,7 +1473,7 @@ namespace cutecat {
 
 
 	template<typename T, template<typename> TStringOrSliceType>
-	inline bool operator==(const TStringOrSliceType<T>& a, const T* cstr) // TODO: check on length etc
+	inline bool operator==(const TStringOrSliceType<T>& a, const T* cstr)
 	{
 		const std::size_t len = a.length();
 		if(len != ::strlen(cstr)) {
@@ -1600,19 +1609,23 @@ namespace cutecat {
 
 	
 	//----------------------------------------------------------------------------------------
-	/** Trim a string from both sides by removing whitespace. #cutecat::CharacterTraits's 
+	/** Trim a string or slice from both sides by removing whitespace. #cutecat::CharacterTraits's 
 	 *  tab, linefeed, newline and space characters are all considered whitespace.
 	 *
 	 *  Use the predicated version to specify a different character set.
+	 *  @return 
 	 */
 	//----------------------------------------------------------------------------------------
-	template <typename T>
-	inline BaseImmutableSlice Trim(const BaseString<T>& d)
+	template<typename T, template<typename> TStringOrSliceType>
+	inline BaseImmutableSlice Trim(const TStringOrSliceType<T>& d)
 	{
 		const char* const sz = d.cbegin(), *cur = sz;
 
+		const std::size_t len = d.length();
+		const char* const end = sz + len, *back_cur = end;
+
 		size_t left = 0u;
-		while(*cur != 0) {
+		while(cur != != end) {
 			if (*cur != CharacterTraits<T>::space		&& 
 				*cur != CharacterTraits<T>::tab			&&
 				*cur != CharacterTraits<T>::newline		&& 
@@ -1622,9 +1635,6 @@ namespace cutecat {
 			++cur;
 			++left;
 		}
-
-		const std::size_t len = d.length();
-		const char* const end = sz + len, *back_cur = end;
 
 		std::size_t right = 0u;
 		while(--back_cur > cur) {
@@ -1647,22 +1657,22 @@ namespace cutecat {
 	 *  TODO
 	 */
 	//----------------------------------------------------------------------------------------
-	template <typename T, typename TLambda>
-	inline BaseImmutableSlice Trim(const BaseString<T>& d, TLambda predicate) 
+	template <typename T, template<typename> TStringOrSliceType, typename TLambda>
+	inline BaseImmutableSlice Trim(const TStringOrSliceType<T>& d, TLambda predicate) 
 	{
 		const char* const sz = d.cbegin(), *cur = sz;
 
+		const std::size_t len = d.length();
+		const char* const end = sz + len, *back_cur = end;
+
 		size_t left = 0u;
-		while(*cur != 0) {
+		while(cur != end) {
 			if (!predicate(*cur)) {
 				break;
 			}
 			++cur;
 			++left;
 		}
-
-		const std::size_t len = d.length();
-		const char* const end = sz + len, *back_cur = end;
 
 		size_t right = 0u;
 		while(--back_cur > cur) {
@@ -1714,12 +1724,12 @@ namespace cutecat {
 	 *  @return The output iterator after the split operation.
 	 */
 	//----------------------------------------------------------------------------------------
-	template<typename T, typename TOutputIterator>
-	TOutputIterator Split(T split, const BaseString<T>& src, TOutputIterator outp, 
+	template <typename T, template<typename> TStringOrSliceType, typename TOutputIterator>
+	TOutputIterator Split(T split, const TStringOrSliceType<T>& src, TOutputIterator outp, 
 		bool merge_adjacent = true
 	)
 	{
-		const T* data = src.get_array();
+		const T* data = src.cbegin(), const T* end = src.end();
 		std::size_t idx = 0u, last = 0u, last_non_split = 0u;
 
 		// merging of adjacent split characters
@@ -1730,7 +1740,7 @@ namespace cutecat {
 				++data;
 			}
 
-			while(*data) {
+			while(data != end) {
 				++idx;
 				if(*data == split) {
 					if(data[1] != split) {
@@ -1752,7 +1762,7 @@ namespace cutecat {
 		}
 
 		// no merging of adjacent split characters
-		while(*data) {
+		while(data != end) {
 			++idx;
 			if(*data == split) {
 				*outp++ = src.get(last, last_non_split);
@@ -1787,7 +1797,7 @@ namespace cutecat {
 	 */
 	//----------------------------------------------------------------------------------------
 	template<template<typename> THaystackType, template<typename> TNeedleType, typename T>
-	BaseMaybeMutableSlice<T> FindOrThrow(THaystackType<T>& haystack, const TNeedleType<const T>& needle)
+	typename SelectSliceType< THaystackType<T> >::type FindOrThrow(THaystackType<T>& haystack, const TNeedleType<T>& needle)
 	{
 		const std::size_t len = needle.length();
 
@@ -1802,10 +1812,11 @@ namespace cutecat {
 		} 
 		throw PatternNotFound();
 	}
+
 
 	//----------------------------------------------------------------------------------------
 	template<template<typename> THaystackType, template<typename> TNeedleType, typename T>
-	BaseImmutableSlice FindOrThrow(const THaystackType<T>& haystack, const TNeedleType<const T>& needle)
+	typename SelectSliceType< THaystackType<T> >::type FindOrDefault(THaystackType<T>& haystack, const TNeedleType<T>& needle)
 	{
 		const std::size_t len = needle.length();
 
@@ -1818,9 +1829,8 @@ namespace cutecat {
 				return haystack(d, d + len);
 			}
 		} 
-		throw PatternNotFound();
+		// TODO
 	}
-
 
 
 #if 0
