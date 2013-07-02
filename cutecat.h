@@ -235,7 +235,7 @@ namespace cutecat {
 	}
 
 	template<typename T>
-	class BaseStringSlice;
+	class BaseMutableSlice;
 
 
 	//----------------------------------------------------------------------------------------
@@ -279,30 +279,126 @@ namespace cutecat {
 
 
 	//----------------------------------------------------------------------------------------
-	/** TODO
+	/** Represents a slice of a string that cannot be modified at all.
+	 *
+	 *  String slices are for their lifetime bound to the string they pertain to. Their
+	 *  behavior becomes undefined when the source string dies.
+	 *
+	 *  The <= operator is not available on mutable slices. operator[] is available,
+	 *  but gives only by-value access. The (start, end)-slice operator is available on
+	 *  immutable slices, but only returns equally immutable slices.
 	 */
 	//----------------------------------------------------------------------------------------
 	template<typename T>
-	class BaseStringSliceMaybeConst
+	class BaseImmutableSlice
 	{
+		friend class BaseString<const T>;
 		friend class BaseString<T>;
-		friend class BaseStringSlice<T>;
-		friend class BaseStringSlice<const T>;
 
-	private:
+	public:
 
-		BaseStringSliceMaybeConst(std::size_t starti, std::size_t endi, BaseString<T>& src)
-			: starti(starti)
-			, endi(endi)
+		BaseMutableSlice(const T* data, const T* data_end)
+			: data		(const_cast<T*>(data))
+			, data_end	(const_cast<T*>(data_end))
+		{
+
+		}
+
+	public:
+
+		// ---------------------------------------------------------------------
+		/** Access an element of the slice by zero-based index. 
+		 *  @param index Index in [0,length()) */
+		// ---------------------------------------------------------------------
+		T operator[] (size_t index) const {
+			assert(data + index < data_end);
+			return data[index];
+		}
+
+	public:
+
+		// ---------------------------------------------------------------------
+		/** Obtain an iterator to the begin of the data area for use in foreach loops.
+		 *  @note Currently the 'iterator' is a raw pointer, but this should
+		 *        not be relied upon. To obtain a raw pointer to the slice data,
+		 *        use @code &*begin() @endcode. Note that the slice data is
+		 *        usually not zero-terminated. */
+		// ---------------------------------------------------------------------
+		const T* begin() const {
+			return data;
+		}
+
+
+		// ---------------------------------------------------------------------
+		/** Obtain an iterator pointing right after the last element of the slice. */
+		// ---------------------------------------------------------------------
+		const T* end() const {
+			return data_end;
+		}
+
+
+		// ---------------------------------------------------------------------
+		/** Equivalent to #begin() */
+		// ---------------------------------------------------------------------
+		const T* cbegin() const {
+			return data;
+		}
+
+
+		// ---------------------------------------------------------------------
+		/** Equivalent to #end() */
+		// ---------------------------------------------------------------------
+		const T* cend() const {
+			return data_end;
+		}
+
+	public:
+
+		// ---------------------------------------------------------------------
+		/** Checks whether this is a slice of another string or slice.
+		 *  @param[in] base String or string slice 
+		 *  @return true iff *this* was obtained from a slice operation on the
+		 *          given slice. */
+		// ---------------------------------------------------------------------
+		template <template<typename> TStringType>
+		bool is_slice_of(const TStringType<T>& base) const {
+			return data >= base.cbegin() && data_end <= base.cend(); 
+		}
+
+	public:
+
+		// ---------------------------------------------------------------------
+		/** Gets the length of the slice, in characters. */
+		// ---------------------------------------------------------------------
+		std::size_t length() const {
+			return static_cast<std::size_t>(data_end - data);
+		}
+
+	protected:
+		/*const*/ T* data;
+		/*const*/ T* data_end;
+	};
+
+
+
+	//----------------------------------------------------------------------------------------
+	/** Represents a slice of a string that can either be treated as immutable, or a
+	 */
+	//----------------------------------------------------------------------------------------
+	template<typename T>
+	class BaseMaybeMutableSlice : public BaseImmutableSlice<T>
+	{
+	public:	
+
+		BaseMaybeMutableSlice(T* data, T* data_end, BaseString<T>& src)
+			: BaseImmutableSlice<T>(data, data_end)
 			, src(src)
 		{
 
 		}
 
-	private:
+	protected:
 
-		const std::size_t starti;
-		const std::size_t endi;
 		BaseString<T>& src;
 	};
 
@@ -314,16 +410,13 @@ namespace cutecat {
 	 */
 	//----------------------------------------------------------------------------------------
 	template<typename T>
-	class BaseStringSlice
+	class BaseMutableSlice : public BaseMaybeMutableSlice
 	{
-		friend class BaseString<T>;
+		
+	public:
 
-	private:
-
-		BaseStringSlice(T* data, T* data_end, BaseString<T>& src)
-			: data(data)
-			, data_end(data_end)
-			, src(src)
+		BaseMutableSlice(T* data, T* data_end, BaseString<T>& src)
+			: BaseMaybeMutableSlice(data, data_end, src)
 		{
 
 		}
@@ -333,8 +426,10 @@ namespace cutecat {
 		// ---------------------------------------------------------------------
 		/** TODO */
 		// ---------------------------------------------------------------------
-		BaseStringSlice(const BaseStringSliceMaybeConst<T>&& other)
+		BaseMutableSlice(const BaseMaybeMutableSlice<T>&& other)
 			: src(other.src)
+			, data(other.data)
+			, data_end(other.data_end)
 		{
 			if(src.flags & BaseString<T>::FLAG_STATIC) {
 				src._make_nonstatic();
@@ -348,7 +443,7 @@ namespace cutecat {
 		// ---------------------------------------------------------------------
 		/** TODO */
 		// ---------------------------------------------------------------------
-		BaseStringSlice& operator <= (const BaseStringSlice<T>& other)
+		BaseMutableSlice& operator <= (const BaseMutableSlice<T>& other)
 		{
 			if(other.src == src) {
 				src._sub<true>(data, data_end, other.begin(), other.end());
@@ -363,7 +458,7 @@ namespace cutecat {
 		// ---------------------------------------------------------------------
 		/** TODO */
 		// ---------------------------------------------------------------------
-		BaseStringSlice& operator <=(const BaseStringSlice<const T>& other)
+		BaseMutableSlice& operator <=(const BaseImmutableSlice& other)
 		{
 			const T* obegin = other.cbegin(), *oend = other.cend();
 			if(obegin >= data && oend <= data_end) {
@@ -379,7 +474,7 @@ namespace cutecat {
 		// ---------------------------------------------------------------------
 		/** TODO */
 		// ---------------------------------------------------------------------
-		BaseStringSlice& operator <=(const BaseString<T>& other)
+		BaseMutableSlice& operator <=(const BaseString<T>& other)
 		{
 			if(other == src) {
 				src._sub<true>(data, data_end, other.cbegin(), other.cend());
@@ -394,7 +489,7 @@ namespace cutecat {
 		// ---------------------------------------------------------------------
 		/** TODO */
 		// ---------------------------------------------------------------------
-		BaseStringSlice& operator <= (T fill)
+		BaseMutableSlice& operator <= (T fill)
 		{
 			// handle the most common case when assigning a character
 			// a slice of size 1 (i.e. character substitution)
@@ -410,7 +505,7 @@ namespace cutecat {
 		// ---------------------------------------------------------------------
 		/** TODO */
 		// ---------------------------------------------------------------------
-		BaseStringSlice& operator <= (const T* fill)
+		BaseMutableSlice& operator <= (const T* fill)
 		{
 			assert(fill != nullptr);
 
@@ -446,14 +541,6 @@ namespace cutecat {
 			return data[index];
 		}
 
-	public:
-
-		// ---------------------------------------------------------------------
-		/** TODO */
-		// ---------------------------------------------------------------------
-		operator BaseStringSlice<const T> () {
-			return BaseStringSlice<const T>(data, data_end);
-		}
 
 	public:
 
@@ -466,8 +553,10 @@ namespace cutecat {
 
 	public:
 
-		// std::iterator_traits<T> supplies the necessary iterator meta info for
-		// raw pointers automatically
+
+		using BaseImmutableSlice<T>::begin;
+		using BaseImmutableSlice<T>::end;
+
 
 		// ---------------------------------------------------------------------
 		/** TODO */
@@ -483,198 +572,61 @@ namespace cutecat {
 		T* end() {
 			return data_end;
 		}
-
-
-		// ---------------------------------------------------------------------
-		/** TODO */
-		// ---------------------------------------------------------------------
-		const T* begin() const {
-			return data;
-		}
-
-		// ---------------------------------------------------------------------
-		/** TODO */
-		// ---------------------------------------------------------------------
-		const T* end() const {
-			return data_end;
-		}
-
-
-		// ---------------------------------------------------------------------
-		/** TODO */
-		// ---------------------------------------------------------------------
-		const T* cbegin() const {
-			return data;
-		}
-
-		// ---------------------------------------------------------------------
-		/** TODO */
-		// ---------------------------------------------------------------------
-		const T* cend() const {
-			return data_end;
-		}
-
-	public:
-
-		std::size_t length() const {
-			return static_cast<std::size_t>(data_end - data);
-		}
-
-	private:
-		T* data;
-		T* data_end;
-		BaseString<T>& src;
 	};
 
 
 
 	template <typename T>
-	BaseStringSlice<T>& operator <=(BaseStringSliceMaybeConst<T>&& self, const BaseStringSlice<T>& other)
+	BaseMutableSlice<T>& operator <=(BaseMaybeMutableSlice<T>&& self, const BaseMutableSlice<T>& other)
 	{
-		return BaseStringSlice<T>(std::move(self)) <= other;
+		return BaseMutableSlice<T>(std::move(self)) <= other;
 	}
 
 
 	template <typename T>
-	BaseStringSlice<T>& operator <=(BaseStringSliceMaybeConst<T>&& self, const BaseStringSlice<const T>& other)
+	BaseMutableSlice<T>& operator <=(BaseMaybeMutableSlice<T>&& self, const BaseImmutableSlice& other)
 	{
-		return BaseStringSlice<T>(std::move(self)) <= other;
+		return BaseMutableSlice<T>(std::move(self)) <= other;
 	}
 
 
 	template <typename T>
-	BaseStringSlice<T>& operator <=(BaseStringSliceMaybeConst<T>&& self, BaseStringSliceMaybeConst<T>&& other)
+	BaseMutableSlice<T>& operator <=(BaseMaybeMutableSlice<T>&& self, BaseMaybeMutableSlice<T>&& other)
 	{
-		return BaseStringSlice<T>(std::move(self)) <= BaseStringSlice<const T>(std::move(other));
+		return BaseMutableSlice<T>(std::move(self)) <= BaseImmutableSlice(std::move(other));
 	}
 
 
 	template <typename T>
-	BaseStringSlice<T>& operator <=(BaseStringSliceMaybeConst<T>&& self, const BaseString<T>& other)
+	BaseMutableSlice<T>& operator <=(BaseMaybeMutableSlice<T>&& self, const BaseString<T>& other)
 	{
-		return BaseStringSlice<T>(std::move(self)) <= other;
+		return BaseMutableSlice<T>(std::move(self)) <= other;
 	}
 
 
 	template <typename T>
-	BaseStringSlice<T>& operator <=(BaseStringSlice<T>& self, BaseStringSliceMaybeConst<T>&& other)
+	BaseMutableSlice<T>& operator <=(BaseMutableSlice<T>& self, BaseMaybeMutableSlice<T>&& other)
 	{
-		return self <= BaseStringSlice<const T>(std::move(other));
+		return self <= BaseImmutableSlice(std::move(other));
 	}
 
 
 	template <typename T>
-	BaseStringSlice<T>& operator <= (BaseStringSliceMaybeConst<T>&& self, T fill)
+	BaseMutableSlice<T>& operator <= (BaseMaybeMutableSlice<T>&& self, T fill)
 	{
-		return BaseStringSlice<T>(std::move(self)) <= fill;
+		return BaseMutableSlice<T>(std::move(self)) <= fill;
 	}
 
 
 	template <typename T>
-	BaseStringSlice<T>& operator <= (BaseStringSliceMaybeConst<T>&& self, const T* fill)
+	BaseMutableSlice<T>& operator <= (BaseMaybeMutableSlice<T>&& self, const T* fill)
 	{
-		return BaseStringSlice<T>(std::move(self)) <= fill;
+		return BaseMutableSlice<T>(std::move(self)) <= fill;
 	}
 
 
 
-	//----------------------------------------------------------------------------------------
-	/** Specialization of BaseStringSlice<T> for const T.
-	 *
-	 *  TODO
-	 */
-	//----------------------------------------------------------------------------------------
-	template<typename T>
-	class BaseStringSlice<const T>
-	{
-		friend class BaseString<const T>;
-		friend class BaseString<T>;
-
-	private:
-
-		BaseStringSlice(const T* data, const T* data_end)
-			: data(data)
-			, data_end(data_end)
-		{
-
-		}
-
-	public:
-
-		BaseStringSlice(const BaseStringSliceMaybeConst<T>&& other)
-		{
-			const T* const s = other.src.begin();
-			data		= s + other.starti;
-			data_end	= s + other.endi;
-		}
-
-	public:
-
-		// ---------------------------------------------------------------------
-		/** TODO */
-		// ---------------------------------------------------------------------
-		T operator[] (size_t index) const {
-			assert(data + index < data_end);
-			return data[index];
-		}
-
-	public:
-
-		// ---------------------------------------------------------------------
-		/** TODO */
-		// ---------------------------------------------------------------------
-		const T* begin() const {
-			return data;
-		}
-
-
-		// ---------------------------------------------------------------------
-		/** TODO */
-		// ---------------------------------------------------------------------
-		const T* end() const {
-			return data_end;
-		}
-
-
-		// ---------------------------------------------------------------------
-		/** TODO */
-		// ---------------------------------------------------------------------
-		const T* cbegin() const {
-			return data;
-		}
-
-		// ---------------------------------------------------------------------
-		/** TODO */
-		// ---------------------------------------------------------------------
-		const T* cend() const {
-			return data_end;
-		}
-
-	public:
-
-		// ---------------------------------------------------------------------
-		/** TODO */
-		// ---------------------------------------------------------------------
-		bool is_slice_of(const BaseString<T>& other) const {
-			// TODO: check for actual string object
-			return data >= other.cbegin() && data_end <= other.cend(); 
-		}
-
-	public:
-
-
-		// ---------------------------------------------------------------------
-		/** TODO */
-		// ---------------------------------------------------------------------
-		std::size_t length() const {
-			return static_cast<std::size_t>(data_end - data);
-		}
-
-	private:
-		const T* data;
-		const T* data_end;
-	};
-
+	
 
 	namespace detail {
 
@@ -719,7 +671,7 @@ namespace cutecat {
 	{
 	private:
 
-		friend class BaseStringSlice<T>;
+		friend class BaseMutableSlice<T>;
 
 	private:
 
@@ -861,7 +813,7 @@ namespace cutecat {
 		// ---------------------------------------------------------------------
 		/** TODO */
 		// ---------------------------------------------------------------------
-		explicit BaseString(const BaseStringSlice<const T>& slice)
+		explicit BaseString(const BaseImmutableSlice& slice)
 			: flags()
 		{
 			const size_t len = slice.length();
@@ -899,7 +851,7 @@ namespace cutecat {
 		// ---------------------------------------------------------------------
 		/** TODO */
 		// ---------------------------------------------------------------------
-		BaseString& operator <= (const BaseStringSlice<const T>& other)
+		BaseString& operator <= (const BaseImmutableSlice& other)
 		{
 			const bool self_slice = other.is_slice_of(*this);
 
@@ -1041,15 +993,15 @@ namespace cutecat {
 	public:
 	
 		// ---------------------------------------------------------------------
-		BaseStringSliceMaybeConst<T> operator()(std::size_t begini, std::size_t endi) {
+		BaseMaybeMutableSlice<T> operator()(std::size_t begini, std::size_t endi) {
 			assert(begini <= endi && endi <= length());
-			return BaseStringSliceMaybeConst<T>(begini, endi, *this);
+			return BaseMaybeMutableSlice<T>(begini, endi, *this);
 		}
 
 
-		BaseStringSlice<const T> operator()(std::size_t begini, std::size_t endi) const {
+		BaseImmutableSlice operator()(std::size_t begini, std::size_t endi) const {
 			assert(begini <= endi && endi <= length());
-			return BaseStringSlice<const T>(data + begini, data + endi);
+			return BaseImmutableSlice(data + begini, data + endi);
 		} 
 
 
@@ -1071,23 +1023,23 @@ namespace cutecat {
 		 *  @return Slice (begini,endi]
 		 */
 		// ------------------------------- --------------------------------------
-		BaseStringSliceMaybeConst<T> operator()(const FromBack& begini, const FromBack& endi) {
+		BaseMaybeMutableSlice<T> operator()(const FromBack& begini, const FromBack& endi) {
 			assert(_is_valid_slice(begini, endi));
 			const std::size_t len = length();
-			return BaseStringSliceMaybeConst<T>(
-				len - begini,
-				len - endi,
+			return BaseMaybeMutableSlice<T>(
+				data + len - begini,
+				data + len - endi,
 				*this
 			);
 		}
 
 
-		BaseStringSlice<const T> operator()(const FromBack& begini, const FromBack& endi) const {
+		BaseImmutableSlice operator()(const FromBack& begini, const FromBack& endi) const {
 			assert(_is_valid_slice(begini, endi));
 
 			// TODO: keep data end pointer?
 			const std::size_t len = length();
-			return BaseStringSlice<const T>(
+			return BaseImmutableSlice(
 				data + len - begini,
 				data + len - endi
 			);
@@ -1095,56 +1047,56 @@ namespace cutecat {
 
 
 		// ------------------------------- --------------------------------------
-		BaseStringSliceMaybeConst<T> operator()(const FromBack& begini, std::size_t endi) {
+		BaseMaybeMutableSlice<T> operator()(const FromBack& begini, std::size_t endi) {
 			assert(_is_valid_slice(begini, endi));
-			return BaseStringSliceMaybeConst<T>(length() - begini, endi, *this);
+			return BaseMaybeMutableSlice<T>(data + length() - begini, data + endi, *this);
 		}
 
 
-		BaseStringSlice<const T> operator()(const FromBack& begini, std::size_t endi) const {
+		BaseImmutableSlice operator()(const FromBack& begini, std::size_t endi) const {
 			assert(_is_valid_slice(begini, endi));
-			return BaseStringSlice<const T>(cend() - begini, data + endi);
+			return BaseImmutableSlice(cend() - begini, data + endi);
 		} 
 
 
 		// ------------------------------- --------------------------------------
-		BaseStringSliceMaybeConst<T> operator()(std::size_t begini, const FromBack& endi) {
+		BaseMaybeMutableSlice<T> operator()(std::size_t begini, const FromBack& endi) {
 			assert(_is_valid_slice(begini, endi));
-			return BaseStringSliceMaybeConst<T>(begini, length() - endi, *this);
+			return BaseMaybeMutableSlice<T>(data + begini, data +  length() - endi, *this);
 		}
 
 
-		BaseStringSlice<const T> operator()(std::size_t begini, const FromBack& endi) const {
+		BaseImmutableSlice operator()(std::size_t begini, const FromBack& endi) const {
 			assert(_is_valid_slice(begini, endi));
-			return BaseStringSlice<const T>(data + begini, cend() - endi);
+			return BaseImmutableSlice(data + begini, cend() - endi);
 		} 
 
 
 		// ---------------------------------------------------------------------
 		/** TODO */
 		// ------------------------------- --------------------------------------
-		BaseStringSliceMaybeConst<T> operator()(std::size_t index) {
+		BaseMaybeMutableSlice<T> operator()(std::size_t index) {
 			assert(_is_valid_slice(index,index));
-			return BaseStringSliceMaybeConst<T>(index,  index, *this);
+			return BaseMaybeMutableSlice<T>(data + index,  data + index, *this);
 		}
 
 
-		BaseStringSlice<const T> operator()(std::size_t index) const {
+		BaseImmutableSlice operator()(std::size_t index) const {
 			assert(_is_valid_slice(index,index));
-			return BaseStringSlice<const T>(data + index, data + index);
+			return BaseImmutableSlice(data + index, data + index);
 		} 
 
 
-		BaseStringSliceMaybeConst<T> operator()(const FromBack& index) {
+		BaseMaybeMutableSlice<T> operator()(const FromBack& index) {
 			assert(_is_valid_slice(index,index));
 			const std::size_t i = length() - index;
-			return BaseStringSliceMaybeConst<T>(i,i);
+			return BaseMaybeMutableSlice<T>(data + i,data + i);
 		}
 
 
-		BaseStringSlice<const T> operator()(const FromBack& index) const {
+		BaseImmutableSlice operator()(const FromBack& index) const {
 			assert(_is_valid_slice(index,index));
-			return BaseStringSlice<const T>(cend() - index, cend() - index);
+			return BaseImmutableSlice(cend() - index, cend() - index);
 		} 
 
 
@@ -1155,8 +1107,8 @@ namespace cutecat {
 		/** TODO */
 		// ------------------------------- --------------------------------------
 		template<typename TFirst, typename TSecond>
-		BaseStringSlice<T> set(TFirst begini, TSecond endi) {
-			return BaseStringSlice<T>((*this)(begini, endi));
+		BaseMutableSlice<T> set(TFirst begini, TSecond endi) {
+			return BaseMutableSlice<T>((*this)(begini, endi));
 		}
 
 
@@ -1164,8 +1116,8 @@ namespace cutecat {
 		/** TODO */
 		// ---------------------------------------------------------------------
 		template<typename TFirst, typename TSecond>
-		BaseStringSlice<const T> get(TFirst begini, TSecond endi) const {
-			return BaseStringSlice<const T>((*this)(begini, endi));
+		BaseImmutableSlice get(TFirst begini, TSecond endi) const {
+			return BaseImmutableSlice((*this)(begini, endi));
 		} 
 
 
@@ -1173,8 +1125,8 @@ namespace cutecat {
 		/** TODO */
 		// ---------------------------------------------------------------------
 		template<typename TFirst>
-		BaseStringSlice<T> set(TFirst index) {
-			return BaseStringSlice<T>((*this)(index));
+		BaseMutableSlice<T> set(TFirst index) {
+			return BaseMutableSlice<T>((*this)(index));
 		}
 
 
@@ -1182,8 +1134,8 @@ namespace cutecat {
 		/** TODO */
 		// ---------------------------------------------------------------------
 		template<typename TFirst>
-		BaseStringSlice<const T> get(TFirst index) const {
-			return BaseStringSlice<const T>((*this)(index));
+		BaseImmutableSlice get(TFirst index) const {
+			return BaseImmutableSlice((*this)(index));
 		}
 
 
@@ -1489,8 +1441,8 @@ namespace cutecat {
 	 */
 	//----------------------------------------------------------------------------------------
 	
-	template<typename TLeft, typename TRight>
-	inline bool operator==(const TLeft& b, const TRight& a) // TODO: check on length etc
+	template<template<typename> TLeft, template<typename> TRight, typename T>
+	inline bool operator==(const TLeft<T>& b, const TRight<T>& a) // TODO: check on length etc
 	{
 		const std::size_t len = a.length();
 		if(len != b.length()) {
@@ -1500,8 +1452,8 @@ namespace cutecat {
 	}
 
 
-	template<typename T, typename TRight>
-	inline bool operator==(const T* cstr, const TRight& a) // TODO: check on length etc
+	template<typename T, template<typename> TStringOrSliceType>
+	inline bool operator==(const T* cstr, const TStringOrSliceType<T>& a) // TODO: check on length etc
 	{
 		const std::size_t len = a.length();
 		if(len != ::strlen(cstr)) {
@@ -1511,8 +1463,8 @@ namespace cutecat {
 	}
 
 
-	template<typename T, typename TRight>
-	inline bool operator==(const TRight& a, const T* cstr) // TODO: check on length etc
+	template<typename T, template<typename> TStringOrSliceType>
+	inline bool operator==(const TStringOrSliceType<T>& a, const T* cstr) // TODO: check on length etc
 	{
 		const std::size_t len = a.length();
 		if(len != ::strlen(cstr)) {
@@ -1529,24 +1481,25 @@ namespace cutecat {
 	 *  @note TODO unicode
 	 *  @param s[in] String instance */
 	//----------------------------------------------------------------------------------------
-	template <typename T>
-	inline size_t Length(const BaseString<T>& s)
+	template<typename T, template<typename> TStringOrSliceType>
+	inline size_t Length(const TStringOrSliceType<T>& s)
 	{
 		return s.length();
 	}
 
 
 	//----------------------------------------------------------------------------------------
-	/** Checks if a string is empty.
+	/** Checks if a string or slice is empty.
 	 *
 	 *  A string s is empty iff Length(s) == 0.
-	 *  @param s[in] String instance */
+	 *  @param s[in] String or slice instance */
 	//----------------------------------------------------------------------------------------
-	template <typename T>
-	inline bool Empty(const BaseString<T>& s)
+	template<typename T, template<typename> TStringOrSliceType>
+	inline bool Empty(const TStringOrSliceType<T>& s)
 	{
 		return s.length() == 0;
 	}
+
 
 #if 0
 	//----------------------------------------------------------------------------------------
@@ -1654,7 +1607,7 @@ namespace cutecat {
 	 */
 	//----------------------------------------------------------------------------------------
 	template <typename T>
-	inline BaseStringSlice<const T> Trim(const BaseString<T>& d)
+	inline BaseImmutableSlice Trim(const BaseString<T>& d)
 	{
 		const char* const sz = d.cbegin(), *cur = sz;
 
@@ -1695,9 +1648,7 @@ namespace cutecat {
 	 */
 	//----------------------------------------------------------------------------------------
 	template <typename T, typename TLambda>
-	inline BaseStringSlice<const T> Trim(const BaseString<T>& d, TLambda predicate
-		// avoid use of std::function because it may be slower
-	) 
+	inline BaseImmutableSlice Trim(const BaseString<T>& d, TLambda predicate) 
 	{
 		const char* const sz = d.cbegin(), *cur = sz;
 
@@ -1817,6 +1768,7 @@ namespace cutecat {
 		return outp;
 	}
 
+	struct PatternNotFound {};
 
 	//----------------------------------------------------------------------------------------
 	/** 
@@ -1826,28 +1778,49 @@ namespace cutecat {
 	 * String s = ...
 	 * // replace "Apple" by "Peach"
 	 * try {
-	 *		s = Find(s, "Apple");
-	 * } catch(StringNotFound& ex) {
+	 *		Find(s, "Apple") <= "Peach";
+	 * } catch(PatternNotFound& ex) {
 	 *
 	 * }
 	 *
 	 * @endcode
 	 */
 	//----------------------------------------------------------------------------------------
-#if 0
-	template<typename TStringType, typename TSearchType, typename TOutputIterator>
-	BaseStringSlice<const T> Find(const TStringType& needle, const TSearchType& needle)
+	template<template<typename> THaystackType, template<typename> TNeedleType, typename T>
+	BaseMaybeMutableSlice<T> FindOrThrow(THaystackType<T>& haystack, const TNeedleType<const T>& needle)
 	{
+		const std::size_t len = needle.length();
+
+		const T* const haystack_begin = haystack.begin(), *const end = haystack.end() - len + 1;
+		const T* const needle_begin = needle.begin();
+
+		const std::size_t d = 0;
+		for(const T* it = haystack_begin; it != end; ++it, ++d) {
+			if(!::strncmp(needle_begin, it, len)) {
+				return haystack(d, d + len);
+			}
+		} 
+		throw PatternNotFound();
 	}
 
-
 	//----------------------------------------------------------------------------------------
-	//----------------------------------------------------------------------------------------
-	template<typename T, typename TOutputIterator>
-	BaseStringSliceMaybeConst<T> Find(TStringType& needle, const TSearchType& needle)
+	template<template<typename> THaystackType, template<typename> TNeedleType, typename T>
+	BaseImmutableSlice FindOrThrow(const THaystackType<T>& haystack, const TNeedleType<const T>& needle)
 	{
+		const std::size_t len = needle.length();
+
+		const T* const haystack_begin = haystack.begin(), *const end = haystack.end() - len + 1;
+		const T* const needle_begin = needle.begin();
+
+		const std::size_t d = 0;
+		for(const T* it = haystack_begin; it != end; ++it, ++d) {
+			if(!::strncmp(needle_begin, it, len)) {
+				return haystack(d, d + len);
+			}
+		} 
+		throw PatternNotFound();
 	}
-#endif
+
 
 
 #if 0
