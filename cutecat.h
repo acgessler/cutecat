@@ -1713,13 +1713,12 @@ namespace cutecat {
 	 *
 	 *  The output is a sequence of slices into the input string.
 	 *
-	 *  @param split			Character to split input string at.
-	 *  @param outp				std::back_inserter-like output iterator to receive output
-	 *  @param merge_adjacent	If set to true, adjacent occurrences of the split characters
-	 *							are treated as a single occurrence. If false, adjacent
-	 *                          occurrences cause empty string slices to be generated.
-	 *                          The same applies to split characters at the beginning or end of 
-	 *                          the string, which then cause an empty slice to be generated.
+	 *  @param[in] split		Character to split input string at.
+	 *  @param[out] outp		std::back_inserter-like output iterator to receive output
+	 *  @param[in] merge_adjacent If set to true, adjacent occurrences of the split characters
+	 *		are treated as a single occurrence. If false, adjacent occurrences cause empty string 
+	 *		slices to be generated. The same applies to split characters at the beginning or 
+	 *      end of the string, which then cause an empty slice to be generated.
 	 *
 	 *  @return The output iterator after the split operation.
 	 */
@@ -1781,55 +1780,171 @@ namespace cutecat {
 	struct PatternNotFound {};
 
 	//----------------------------------------------------------------------------------------
-	/** 
-	 * Usage
+	/** Enumerates possible algorithms for substring searching for use with the 
+	 *  FindXXX family of functions. */
+	//----------------------------------------------------------------------------------------
+	enum SearchAlgorithm 
+	{
+		/// Use a heuristic to select the best algorithm
+		SEARCH_ALGORITHM_AUTO,
+
+		/// Use normal brute force search, which is O(|haystack|*|needle|)
+		SEARCH_ALGORITHM_BRUTE_FORCE,
+
+		/// Use the Knuth-Morris-Pratt algorithm, which is O(|haystack|)
+		SEARCH_ALGORITHM_KMP,
+
+		/// use the Rabin-Karp hashing algorithm, which is O(|haystack|*|needle|)
+		/// worst-case but has expected O(|haystack|)
+		SEARCH_ALGORITHM_RABIN_KARP,
+	};
+
+
+	//----------------------------------------------------------------------------------------
+	/** Find the first instance of a given substring in a string or slice. If the search
+	 *  string is found in the input string, a slice that represents the result is handed
+	 *  back to the caller. The return value expresses whether a match has been found.
+	 *
+	 * Usage sample:
+	 *
+	 * @code
+	 * String s = ...
+	 * ImmutableSlice slice;
+	 * // replace "Apple" by "Peach" iff "Apple" exists in s
+	 * if(Find(s, "Apple", slice))
+	 *    slice  <= "Peach";
+	 * } 
+	 *
+	 * @endcode
+	 *
+	 *  @param[in] haystack	The string or slice to be searched in
+	 *  @param[in] needle	The string or slice to be searched for
+	 *  @param[out] result  Iff the return value is true, receives a slice representing the
+	 *                      first occurence of the needle string in the haystack string.
+	 *  @return true iff the needle string has been found in the haystack string
+	 */
+	//----------------------------------------------------------------------------------------
+	template<template<typename> THaystackType, template<typename> TNeedleType, typename T>
+	bool Find(THaystackType<T>& haystack, const TNeedleType<T>& needle,
+		typename detail::SelectSliceType< THaystackType<T> >::type& result) // TODO: make convertible instead of exact type
+	{
+		const std::size_t len = needle.length();
+		const std::size_t hay_len = haystack.length();
+
+		if(len > hay_len) {
+			throw PatternNotFound();
+		}
+
+		if(algo == SEARCH_ALGORITHM_AUTO) {
+			if (len > 5 && (hay_len >> 2) < len) {
+				algo = SEARCH_ALGORITHM_RABIN_KARP;
+			}
+			else algo = SEARCH_ALGORITHM_BRUTE_FORCE;
+		}
+
+		typename detail::SelectSliceType< THaystackType<T> >::type result;
+		bool found = false;
+
+		switch(algo) {
+
+			// brute force search goes in-place, this is the most common case
+		case SEARCH_ALGORITHM_BRUTE_FORCE: {
+			const T* const haystack_begin = haystack.begin(), *const end = haystack.end() - len + 1;
+			const T* const needle_begin = needle.begin();
+
+			const std::size_t d = 0;
+			for(const T* it = haystack_begin; it != end; ++it, ++d) {
+				if(!::strncmp(needle_begin, it, len)) {
+					return haystack(d, d + len);
+				}
+			} 
+			break;
+		}
+
+			// Knuth-Morris-Pratt
+		case SEARCH_ALGORITHM_KMP:
+			return detail::FindKMP(haystack, needle, result);
+
+			// Rabin-Karp rolling hash
+		case SEARCH_ALGORITHM_RABIN_KARP:
+			return detail::FindRabinKarp(haystack, needle, result);
+
+		default:
+			assert(false);
+		}
+
+		return;
+	}
+
+
+	//----------------------------------------------------------------------------------------
+	/** Find the first instance of a given substring in a string or slice. If the search
+	 *  string (needle) is found in the input string (haystack), a slice that represents the 
+	 *  match is returned, otherwise, an exception is thrown.
+	 *
+	 * Usage sample:
 	 *
 	 * @code
 	 * String s = ...
 	 * // replace "Apple" by "Peach"
 	 * try {
-	 *		Find(s, "Apple") <= "Peach";
+	 *		FindOrThrow(s, "Apple") <= "Peach";
 	 * } catch(PatternNotFound& ex) {
-	 *
+	 * 
 	 * }
 	 *
 	 * @endcode
+	 *
+	 *  @throws cutecat::PatternNotFound if the needle string cannot be found in the haystack string.
+	 *
+	 *  @param[in] haystack	The string or slice to be searched in
+	 *  @param[in] needle	The string or slice to be searched for
+	 *  @return A slice embracing the found string
 	 */
 	//----------------------------------------------------------------------------------------
 	template<template<typename> THaystackType, template<typename> TNeedleType, typename T>
-	typename SelectSliceType< THaystackType<T> >::type FindOrThrow(THaystackType<T>& haystack, const TNeedleType<T>& needle)
+	inline typename SelectSliceType< THaystackType<T> >::type FindOrThrow(THaystackType<T>& haystack, 
+		const TNeedleType<T>& needle,
+		SearchAlgorithm algo = SEARCH_ALGORITHM_AUTO)
 	{
-		const std::size_t len = needle.length();
+		typename detail::SelectSliceType< THaystackType<T> >::type result;
+		if(!Find(haystack, needle, result)) {
+			throw PatternNotFound();
+		}
 
-		const T* const haystack_begin = haystack.begin(), *const end = haystack.end() - len + 1;
-		const T* const needle_begin = needle.begin();
-
-		const std::size_t d = 0;
-		for(const T* it = haystack_begin; it != end; ++it, ++d) {
-			if(!::strncmp(needle_begin, it, len)) {
-				return haystack(d, d + len);
-			}
-		} 
-		throw PatternNotFound();
+		return std::move(result);
 	}
 
 
 	//----------------------------------------------------------------------------------------
+	/** Find the first instance of a given substring in a string or slice. If the search
+	 *  string is found in the input string, a slice that represents the result is returned,
+	 *  otherwise, an exception is thrown.
+	 *
+	 * Usage sample:
+	 *
+	 * @code
+	 * String s = ...
+	 * // replace "Apple" by "Peach", insert at the end if "Apple" does not occur
+	 * FindOrDefault(s, "Apple", s(0)) <= "Peach";
+	 *
+	 * @endcode
+	 *
+	 *  @param[in] haystack	The string or slice to be searched in
+	 *  @param[in] needle	The string or slice to be searched for
+	 *  @return A slice embracing the found string
+	 */
+	//----------------------------------------------------------------------------------------
 	template<template<typename> THaystackType, template<typename> TNeedleType, typename T>
-	typename SelectSliceType< THaystackType<T> >::type FindOrDefault(THaystackType<T>& haystack, const TNeedleType<T>& needle)
+	inline typename SelectSliceType< THaystackType<T> >::type FindOrDefault(THaystackType<T>& haystack, const TNeedleType<T>& needle,
+		typename const detail::SelectSliceType< THaystackType<T> >::type& default_result)
 	{
-		const std::size_t len = needle.length();
+		typename detail::SelectSliceType< THaystackType<T> >::type result;
+		if(!Find(haystack, needle, result)) {
+			return default_result;
+		}
 
-		const T* const haystack_begin = haystack.begin(), *const end = haystack.end() - len + 1;
-		const T* const needle_begin = needle.begin();
-
-		const std::size_t d = 0;
-		for(const T* it = haystack_begin; it != end; ++it, ++d) {
-			if(!::strncmp(needle_begin, it, len)) {
-				return haystack(d, d + len);
-			}
-		} 
-		// TODO
+		return std::move(result);
 	}
 
 
