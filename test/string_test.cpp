@@ -213,8 +213,8 @@ TEST (StringTest, TestStringComparison) {
 	ASSERT_EQ(str, str2);
 	ASSERT_NE(str, str3);
 
-	cutecat::BaseStringSlice<const char> slice = str.get(0, 15);
-	cutecat::BaseStringSlice<const char> slice2 = str2.get(0, 15);
+	auto slice = str.get(0, 15);
+	auto slice2 = str2.get(0, 15);
 	// const slice == const slice
 	ASSERT_EQ(slice, slice2);
 
@@ -234,8 +234,8 @@ TEST (StringTest, TestStringComparison) {
 	ASSERT_NE(slice, strPrefix);
 	ASSERT_NE(strPrefix, slice);
 
-	cutecat::BaseStringSlice<const char> sliceFull = str.get(0, str.length());
-	cutecat::BaseStringSlice<const char> sliceFull2 = str2.get(0, str.length());
+	auto sliceFull = str.get(0, str.length());
+	auto sliceFull2 = str2.get(0, str.length());
 
 	// (const) slice == string and vice versa
 	ASSERT_EQ(str, sliceFull);
@@ -313,7 +313,7 @@ TEST (StringTest, TestStringSlicing) {
 	str1.set(1,5)[0] = 'a';
 	ASSERT_EQ(str1[1], 'a');
 
-	cutecat::BaseStringSlice<char> s = str1.set(1,5);
+	auto s = str1.set(1,5);
 	for( char* c = s.begin(); c != s.end(); ++c) {
 		*c = 'a';
 	} 
@@ -376,7 +376,7 @@ TEST (StringTest, TestStringSlicingCompactSyntax) {
 	str1.set(1,5)[0] = 'a';
 	ASSERT_EQ(str1[1], 'a');
 
-	cutecat::BaseStringSlice<char> s = str1.set(1,5);
+	auto s = str1.set(1,5);
 	for( char* c = s.begin(); c != s.end(); ++c) {
 		*c = 'a';
 	} 
@@ -440,7 +440,7 @@ TEST (StringTest, TestStringSlicingCompactSyntaxBack) {
 	str1.set(1,5)[0] = 'a';
 	ASSERT_EQ(str1[1], 'a');
 
-	cutecat::BaseStringSlice<char> s = str1.set(1,5);
+	auto s = str1.set(1,5);
 	for( char* c = s.begin(); c != s.end(); ++c) {
 		*c = 'a';
 	} 
