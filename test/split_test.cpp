@@ -6,7 +6,7 @@
 #include "../cutecat.h"
 
 using cutecat::String;
-using cutecat::BaseStringSlice;
+using cutecat::BaseString;
 using cutecat::FromRaw;
 using cutecat::FromStatic;
 
@@ -16,7 +16,7 @@ TEST (SplitTest, TestSplitToSlice) {
 	// TODO: typedefs for slices
 	String sbase = FromStatic("foo bar fob");
 
-	typedef std::vector< BaseStringSlice<const char> > SliceType;
+	typedef std::vector< BaseString<char>::ImmutableSliceType > SliceType;
 
 	// split normal
 	SliceType slices;

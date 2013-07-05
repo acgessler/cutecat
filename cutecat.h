@@ -235,7 +235,7 @@ namespace cutecat {
 		};
 	}
 
-	template<typename T, typename... TRest>
+	template<typename TStringType>
 	class BaseMutableSlice;
 
 
@@ -290,11 +290,13 @@ namespace cutecat {
 	 *  immutable slices, but only returns equally immutable slices.
 	 */
 	//----------------------------------------------------------------------------------------
-	template<typename TStringType>
+	template<class TStringType>
 	class BaseImmutableSlice
 	{
 
 	public:
+
+		typedef TStringType string_type;
 
 		typedef typename TStringType::value_type T;
 		typedef typename TStringType::value_type value_type;
@@ -392,10 +394,14 @@ namespace cutecat {
 	template<typename TStringType>
 	class BaseMaybeMutableSlice : public BaseImmutableSlice<TStringType>
 	{
+	public:
+
+		using typename BaseImmutableSlice::T;
+
 	public:	
 
 		BaseMaybeMutableSlice(T* data, T* data_end, TStringType& src)
-			: BaseImmutableSlice<T>(data, data_end)
+			: BaseImmutableSlice(data, data_end)
 			, src(src)
 		{
 
@@ -416,7 +422,10 @@ namespace cutecat {
 	template<typename TStringType>
 	class BaseMutableSlice : public BaseMaybeMutableSlice<TStringType>
 	{
-		
+	public:
+
+		using typename BaseMaybeMutableSlice::T;
+
 	public:
 
 		BaseMutableSlice(T* data, T* data_end, TStringType& src)
@@ -430,12 +439,10 @@ namespace cutecat {
 		// ---------------------------------------------------------------------
 		/** TODO */
 		// ---------------------------------------------------------------------
-		BaseMutableSlice(const BaseMaybeMutableSlice<T>&& other)
-			: src(other.src)
-			, data(other.data)
-			, data_end(other.data_end)
+		BaseMutableSlice(BaseMaybeMutableSlice&& other)
+			: BaseMaybeMutableSlice(other.src, other.data, other.data_end)
 		{
-			if(src.flags & BaseString<T>::FLAG_STATIC) {
+			if(src.flags & TStringType::FLAG_STATIC) {
 				src._make_nonstatic(data, data_end);
 			}
 		}
@@ -445,7 +452,7 @@ namespace cutecat {
 		// ---------------------------------------------------------------------
 		/** TODO */
 		// ---------------------------------------------------------------------
-		BaseMutableSlice& operator <= (const BaseMutableSlice<T>& other)
+		BaseMutableSlice& operator <= (const BaseMutableSlice& other)
 		{
 			if(other.src == src) {
 				src._sub<true>(data, data_end, other.begin(), other.end());
@@ -476,7 +483,7 @@ namespace cutecat {
 		// ---------------------------------------------------------------------
 		/** TODO */
 		// ---------------------------------------------------------------------
-		BaseMutableSlice& operator <=(const BaseString<T>& other)
+		BaseMutableSlice& operator <=(const TStringType& other)
 		{
 			if(other == src) {
 				src._sub<true>(data, data_end, other.cbegin(), other.cend());
@@ -579,33 +586,41 @@ namespace cutecat {
 
 	// TODO: remove potential overhead by just doing a reinterpret_cast 
 
+
 	template <typename TDestStringType, typename TSourceStringOrSliceType>
-	BaseMutableSlice<TDestStringType>& operator <=(BaseMaybeMutableSlice<TDestStringType>&& self,
-		const TSourceStringOrSliceType& other)
+	BaseMutableSlice<TDestStringType> operator <=(BaseMaybeMutableSlice<TDestStringType>&& self,
+		BaseMaybeMutableSlice<TDestStringType>&& other)
 	{
-		return BaseMutableSlice<TDestStringType>(std::move(self)) <= other;
+		return BaseMutableSlice<TDestStringType>(std::move(self))
+			.operator<=(static_cast<BaseImmutableSlice<TDestStringType>&&>(other));
+	}
+
+	// TODO: this is very open because BaseMaybeMutableSlice causes ambiguity with the 
+	// members in MutableSlice
+	template <typename TDestStringOrSliceType, typename TSourceStringOrSliceType>
+	BaseMutableSlice<typename TDestStringOrSliceType::string_type> operator <=(TDestStringOrSliceType&& self,
+		TSourceStringOrSliceType& other)
+	{
+		return (BaseMutableSlice<typename TDestStringOrSliceType::string_type>(std::move(self))).operator<=(other);
 	}
 
 
 
 	template <typename TDestStringType>
-	BaseMutableSlice<TDestStringType>& operator <= (BaseMaybeMutableSlice<TDestStringType>&& self, 
+	BaseMutableSlice<TDestStringType> operator <= (BaseMaybeMutableSlice<TDestStringType>&& self, 
 		typename TDestStringType::value_type fill)
 	{
-		return BaseMutableSlice<TDestStringType>(std::move(self)) <= fill;
+		return (BaseMutableSlice<TDestStringType>(std::move(self))).operator<=(fill);
 	}
 
 
 	template <typename TDestStringType>
-	BaseMutableSlice<TDestStringType>& operator <= (BaseMaybeMutableSlice<typename TDestStringType::value_type>&& self, 
+	BaseMutableSlice<TDestStringType> operator <= (BaseMaybeMutableSlice<TDestStringType>&& self, 
 		const typename TDestStringType::value_type* fill)
 	{
 		return BaseMutableSlice<TDestStringType>(std::move(self)) <= fill;
 	}
 
-
-
-	
 
 	namespace detail {
 
@@ -713,7 +728,7 @@ namespace cutecat {
 
 		typedef BaseImmutableSlice<BaseString>		ImmutableSliceType;
 		typedef BaseMutableSlice<BaseString>		MutableSliceType;
-		typedef BaseMaybeMutableSlice<BaseString>	 MaybeMutableSliceType;
+		typedef BaseMaybeMutableSlice<BaseString>	MaybeMutableSliceType;
 
 	public:
 		
@@ -1434,6 +1449,64 @@ namespace cutecat {
 #undef PACK_STRUCT
 
 
+
+	namespace detail {
+
+		template <typename T>
+		struct SelectSliceType;
+
+
+		template <typename T, typename... TRest>
+		struct SelectSliceType<const BaseString<T, TRest...> > {
+			typedef BaseImmutableSlice<BaseString<T, TRest...> > type;
+		};
+
+		template <typename T, typename... TRest>
+		struct SelectSliceType<BaseString<T, TRest...> > {
+			typedef BaseMaybeMutableSlice< BaseString<T, TRest...> > type;
+		};
+
+
+
+		template <typename TStringType>
+		struct SelectSliceType<BaseImmutableSlice<TStringType> > {
+			typedef BaseImmutableSlice<TStringType> type;
+		};
+
+		template <typename TStringType>
+		struct SelectSliceType<const BaseImmutableSlice<TStringType> > {
+			typedef BaseImmutableSlice<TStringType> type;
+		};
+
+
+
+		template <typename TStringType>
+		struct SelectSliceType<BaseMaybeMutableSlice<TStringType> > {
+			typedef BaseMaybeMutableSlice<TStringType> type;
+		};
+
+		template <typename TStringType>
+		struct SelectSliceType<const BaseMaybeMutableSlice<TStringType> > {
+			typedef BaseImmutableSlice<TStringType> type;
+		};
+
+
+
+		template <typename TStringType>
+		struct SelectSliceType<BaseMutableSlice<TStringType> > {
+			typedef BaseMutableSlice<TStringType> type;
+		};
+
+		template <typename TStringType>
+		struct SelectSliceType<const BaseMutableSlice<TStringType> > {
+			typedef BaseImmutableSlice<TStringType> type;
+		};
+	}
+
+
+
+
+
 	//----------------------------------------------------------------------------------------
 	/** String comparison
 	 *
@@ -1630,16 +1703,15 @@ namespace cutecat {
 	 *  @return 
 	 */
 	//----------------------------------------------------------------------------------------
-	template <
-		template<typename, typename...> class TStringOrSliceType, 
-		typename T, 
-		typename... TRest>
-	inline BaseImmutableSlice<T> Trim(const TStringOrSliceType<T, TRest...>& d)
+	template <class TStringOrSliceType>
+	inline typename detail::SelectSliceType<TStringOrSliceType>::type Trim(TStringOrSliceType& d)
 	{
-		const char* const sz = d.cbegin(), *cur = sz;
+		typedef typename TStringOrSliceType::value_type T;
+
+		const T* const sz = d.cbegin(), *cur = sz;
 
 		const std::size_t len = d.length();
-		const char* const end = sz + len, *back_cur = end;
+		const T* const end = sz + len, *back_cur = end;
 
 		size_t left = 0u;
 		while(cur != end) {
@@ -1674,17 +1746,14 @@ namespace cutecat {
 	 *  TODO
 	 */
 	//----------------------------------------------------------------------------------------
-	template <
-		template<typename, typename...> class TStringOrSliceType, 
-		typename T, 
-		typename... TRest, 
-		typename TLambda>
-	inline BaseImmutableSlice<T> Trim(const TStringOrSliceType<T, TRest...>& d, TLambda predicate) 
+	template <class TStringOrSliceType, class TLambda>
+	inline typename detail::SelectSliceType<TStringOrSliceType>::type Trim(TStringOrSliceType& d, TLambda predicate) 
 	{
-		const char* const sz = d.cbegin(), *cur = sz;
+		typedef typename TStringOrSliceType::value_type T;
+		const T* const sz = d.cbegin(), *cur = sz;
 
 		const std::size_t len = d.length();
-		const char* const end = sz + len, *back_cur = end;
+		const T* const end = sz + len, *back_cur = end;
 
 		size_t left = 0u;
 		while(cur != end) {
@@ -1744,16 +1813,14 @@ namespace cutecat {
 	 *  @return The output iterator after the split operation.
 	 */
 	//----------------------------------------------------------------------------------------
-	template <
-		template<typename, typename...> class TStringOrSliceType, 
-		typename T, 
-		typename... TRest,
-		typename TOutputIterator>
-	TOutputIterator Split(T split, const TStringOrSliceType<T,TRest...>& src, TOutputIterator outp, 
+	template <class TStringOrSliceType, typename TOutputIterator>
+	TOutputIterator Split(typename TStringOrSliceType::value_type split, TStringOrSliceType& src, TOutputIterator outp, 
 		bool merge_adjacent = true
 	)
 	{
-		const T* data = src.cbegin(), const T* end = src.end();
+		typedef typename TStringOrSliceType::value_type T;
+
+		const T* data = src.cbegin(), *const end = src.end();
 		std::size_t idx = 0u, last = 0u, last_non_split = 0u;
 
 		// merging of adjacent split characters
@@ -1823,60 +1890,6 @@ namespace cutecat {
 		/// worst-case but has expected O(|haystack|)
 		SEARCH_ALGORITHM_RABIN_KARP,
 	};
-
-
-	namespace detail {
-
-		template <typename T>
-		struct SelectSliceType;
-
-
-		template <typename T, typename... TRest>
-		struct SelectSliceType<const BaseString<T, TRest...> > {
-			typedef BaseImmutableSlice<T> type;
-		};
-
-		template <typename T, typename... TRest>
-		struct SelectSliceType<BaseString<T, TRest...> > {
-			typedef BaseMaybeMutableSlice<T, TRest...> type;
-		};
-
-
-
-		template <typename T>
-		struct SelectSliceType<BaseImmutableSlice<T> > {
-			typedef BaseImmutableSlice<T> type;
-		};
-
-		template <typename T>
-		struct SelectSliceType<const BaseImmutableSlice<T> > {
-			typedef BaseImmutableSlice<T> type;
-		};
-
-
-
-		template <typename T, typename... TRest>
-		struct SelectSliceType<BaseMaybeMutableSlice<T, TRest...> > {
-			typedef BaseMaybeMutableSlice<T, TRest...> type;
-		};
-
-		template <typename T, typename... TRest>
-		struct SelectSliceType<const BaseMaybeMutableSlice<T, TRest...> > {
-			typedef BaseImmutableSlice<T> type;
-		};
-
-
-
-		template <typename T, typename... TRest>
-		struct SelectSliceType<BaseMutableSlice<T, TRest...> > {
-			typedef BaseMutableSlice<T, TRest...> type;
-		};
-
-		template <typename T, typename... TRest>
-		struct SelectSliceType<const BaseMutableSlice<T, TRest...> > {
-			typedef BaseImmutableSlice<T> type;
-		};
-	}
 
 
 	//----------------------------------------------------------------------------------------
