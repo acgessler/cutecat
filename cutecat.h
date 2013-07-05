@@ -292,12 +292,11 @@ namespace cutecat {
 	template<typename T>
 	class BaseImmutableSlice
 	{
-		friend class BaseString<const T>;
-		friend class BaseString<T>;
+		
 
 	public:
 
-		BaseMutableSlice(const T* data, const T* data_end)
+		BaseImmutableSlice(const T* data, const T* data_end)
 			: data		(const_cast<T*>(data))
 			, data_end	(const_cast<T*>(data_end))
 		{
@@ -360,7 +359,7 @@ namespace cutecat {
 		 *  @return true iff *this* was obtained from a slice operation on the
 		 *          given slice. */
 		// ---------------------------------------------------------------------
-		template <template<typename> TStringType>
+		template <template<typename> class TStringType>
 		bool is_slice_of(const TStringType<T>& base) const {
 			return data >= base.cbegin() && data_end <= base.cend(); 
 		}
@@ -410,7 +409,7 @@ namespace cutecat {
 	 */
 	//----------------------------------------------------------------------------------------
 	template<typename T>
-	class BaseMutableSlice : public BaseMaybeMutableSlice
+	class BaseMutableSlice : public BaseMaybeMutableSlice<T>
 	{
 		
 	public:
@@ -432,10 +431,8 @@ namespace cutecat {
 			, data_end(other.data_end)
 		{
 			if(src.flags & BaseString<T>::FLAG_STATIC) {
-				src._make_nonstatic();
+				src._make_nonstatic(data, data_end);
 			}
-			data		= src.data + other.starti;
-			data_end	= src.data + other.endi;
 		}
 
 	public:
@@ -584,7 +581,7 @@ namespace cutecat {
 
 
 	template <typename T>
-	BaseMutableSlice<T>& operator <=(BaseMaybeMutableSlice<T>&& self, const BaseImmutableSlice& other)
+	BaseMutableSlice<T>& operator <=(BaseMaybeMutableSlice<T>&& self, const BaseImmutableSlice<T>& other)
 	{
 		return BaseMutableSlice<T>(std::move(self)) <= other;
 	}
@@ -1302,6 +1299,22 @@ namespace cutecat {
 		}
 
 
+		// ---------------------------------------------------------------------
+		/** TODO */
+		// ---------------------------------------------------------------------
+		void _make_nonstatic(T*& ref_begin, T*& ref_end) {
+			assert(flags & FLAG_STATIC);
+
+			const std::size_t begin_idx = ref_begin - data;
+			const std::size_t end_idx = ref_end - data;
+
+			_make_nonstatic();
+
+			ref_begin = data + begin_idx;
+			ref_end = data + end_idx;
+		}
+
+
 
 		// ---------------------------------------------------------------------
 		/** Substitute a given slice of the string by another.
@@ -1450,7 +1463,7 @@ namespace cutecat {
 	 */
 	//----------------------------------------------------------------------------------------
 	
-	template<template<typename> TLeft, template<typename> TRight, typename T>
+	template<template<typename> class TLeft, template<typename> class TRight, typename T>
 	inline bool operator==(const TLeft<T>& b, const TRight<T>& a) 
 	{
 		const std::size_t len = a.length();
@@ -1461,7 +1474,7 @@ namespace cutecat {
 	}
 
 
-	template<typename T, template<typename> TStringOrSliceType>
+	template<typename T, template<typename> class TStringOrSliceType>
 	inline bool operator==(const T* cstr, const TStringOrSliceType<T>& a)
 	{
 		const std::size_t len = a.length();
@@ -1472,7 +1485,7 @@ namespace cutecat {
 	}
 
 
-	template<typename T, template<typename> TStringOrSliceType>
+	template<typename T, template<typename> class TStringOrSliceType>
 	inline bool operator==(const TStringOrSliceType<T>& a, const T* cstr)
 	{
 		const std::size_t len = a.length();
@@ -1490,7 +1503,7 @@ namespace cutecat {
 	 *  @note TODO unicode
 	 *  @param s[in] String instance */
 	//----------------------------------------------------------------------------------------
-	template<typename T, template<typename> TStringOrSliceType>
+	template<typename T, template<typename> class TStringOrSliceType>
 	inline size_t Length(const TStringOrSliceType<T>& s)
 	{
 		return s.length();
@@ -1503,7 +1516,7 @@ namespace cutecat {
 	 *  A string s is empty iff Length(s) == 0.
 	 *  @param s[in] String or slice instance */
 	//----------------------------------------------------------------------------------------
-	template<typename T, template<typename> TStringOrSliceType>
+	template<typename T, template<typename> class TStringOrSliceType>
 	inline bool Empty(const TStringOrSliceType<T>& s)
 	{
 		return s.length() == 0;
@@ -1616,8 +1629,8 @@ namespace cutecat {
 	 *  @return 
 	 */
 	//----------------------------------------------------------------------------------------
-	template<typename T, template<typename> TStringOrSliceType>
-	inline BaseImmutableSlice Trim(const TStringOrSliceType<T>& d)
+	template<typename T, template<typename> class TStringOrSliceType>
+	inline BaseImmutableSlice<T> Trim(const TStringOrSliceType<T>& d)
 	{
 		const char* const sz = d.cbegin(), *cur = sz;
 
@@ -1657,8 +1670,8 @@ namespace cutecat {
 	 *  TODO
 	 */
 	//----------------------------------------------------------------------------------------
-	template <typename T, template<typename> TStringOrSliceType, typename TLambda>
-	inline BaseImmutableSlice Trim(const TStringOrSliceType<T>& d, TLambda predicate) 
+	template <typename T, template<typename> class TStringOrSliceType, typename TLambda>
+	inline BaseImmutableSlice<T> Trim(const TStringOrSliceType<T>& d, TLambda predicate) 
 	{
 		const char* const sz = d.cbegin(), *cur = sz;
 
@@ -1723,7 +1736,7 @@ namespace cutecat {
 	 *  @return The output iterator after the split operation.
 	 */
 	//----------------------------------------------------------------------------------------
-	template <typename T, template<typename> TStringOrSliceType, typename TOutputIterator>
+	template <typename T, template<typename> class TStringOrSliceType, typename TOutputIterator>
 	TOutputIterator Split(T split, const TStringOrSliceType<T>& src, TOutputIterator outp, 
 		bool merge_adjacent = true
 	)
@@ -1824,7 +1837,7 @@ namespace cutecat {
 	 *  @return true iff the needle string has been found in the haystack string
 	 */
 	//----------------------------------------------------------------------------------------
-	template<template<typename> THaystackType, template<typename> TNeedleType, typename T>
+	template<template<typename> class THaystackType, template<typename> class TNeedleType, typename T>
 	bool Find(THaystackType<T>& haystack, const TNeedleType<T>& needle,
 		typename detail::SelectSliceType< THaystackType<T> >::type& result) // TODO: make convertible instead of exact type
 	{
@@ -1902,7 +1915,7 @@ namespace cutecat {
 	 *  @return A slice embracing the found string
 	 */
 	//----------------------------------------------------------------------------------------
-	template<template<typename> THaystackType, template<typename> TNeedleType, typename T>
+	template<template<typename> class THaystackType, template<typename> class TNeedleType, typename T>
 	inline typename SelectSliceType< THaystackType<T> >::type FindOrThrow(THaystackType<T>& haystack, 
 		const TNeedleType<T>& needle,
 		SearchAlgorithm algo = SEARCH_ALGORITHM_AUTO)
@@ -1935,8 +1948,8 @@ namespace cutecat {
 	 *  @return A slice embracing the found string
 	 */
 	//----------------------------------------------------------------------------------------
-	template<template<typename> THaystackType, template<typename> TNeedleType, typename T>
-	inline typename SelectSliceType< THaystackType<T> >::type FindOrDefault(THaystackType<T>& haystack, const TNeedleType<T>& needle,
+	template<template<typename> class THaystackType, template<typename> class TNeedleType, typename T>
+	inline typename detail::SelectSliceType< THaystackType<T> >::type FindOrDefault(THaystackType<T>& haystack, const TNeedleType<T>& needle,
 		typename const detail::SelectSliceType< THaystackType<T> >::type& default_result)
 	{
 		typename detail::SelectSliceType< THaystackType<T> >::type result;
