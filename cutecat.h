@@ -1462,9 +1462,12 @@ namespace cutecat {
 	 *  TODO
 	 */
 	//----------------------------------------------------------------------------------------
-	
-	template<template<typename> class TLeft, template<typename> class TRight, typename T>
-	inline bool operator==(const TLeft<T>& b, const TRight<T>& a) 
+	template<
+		template<typename, typename...> class TLeft, 
+		template<typename, typename...> class TRight, 
+		typename T, 
+		typename... TRest>
+	inline bool operator==(const TLeft<T, TRest...>& b, const TRight<T, TRest...>& a) 
 	{
 		const std::size_t len = a.length();
 		if(len != b.length()) {
@@ -1474,8 +1477,11 @@ namespace cutecat {
 	}
 
 
-	template<typename T, template<typename> class TStringOrSliceType>
-	inline bool operator==(const T* cstr, const TStringOrSliceType<T>& a)
+	template<
+		template<typename, typename...> class TStringOrSliceType, 
+		typename T, 
+		typename... TRest>
+	inline bool operator==(const T* cstr, const TStringOrSliceType<T, TRest...>& a)
 	{
 		const std::size_t len = a.length();
 		if(len != ::strlen(cstr)) {
@@ -1485,7 +1491,10 @@ namespace cutecat {
 	}
 
 
-	template<typename T, template<typename> class TStringOrSliceType>
+	template<
+		template<typename, typename...> class TStringOrSliceType, 
+		typename T, 
+		typename... TRest>
 	inline bool operator==(const TStringOrSliceType<T>& a, const T* cstr)
 	{
 		const std::size_t len = a.length();
@@ -1837,9 +1846,13 @@ namespace cutecat {
 	 *  @return true iff the needle string has been found in the haystack string
 	 */
 	//----------------------------------------------------------------------------------------
-	template<template<typename> class THaystackType, template<typename> class TNeedleType, typename T>
-	bool Find(THaystackType<T>& haystack, const TNeedleType<T>& needle,
-		typename detail::SelectSliceType< THaystackType<T> >::type& result) // TODO: make convertible instead of exact type
+	template<
+		template<typename, typename...> class THaystackType, 
+		template<typename, typename...> class TNeedleType, 
+		typename T,
+		typename... TRest>
+	bool Find(THaystackType<T, TRest...>& haystack, const TNeedleType<T, TRest...>& needle,
+		typename detail::SelectSliceType< THaystackType<T, TRest...> >::type& result) // TODO: make convertible instead of exact type
 	{
 		const std::size_t len = needle.length();
 		const std::size_t hay_len = haystack.length();
@@ -1855,7 +1868,7 @@ namespace cutecat {
 			else algo = SEARCH_ALGORITHM_BRUTE_FORCE;
 		}
 
-		typename detail::SelectSliceType< THaystackType<T> >::type result;
+		typename detail::SelectSliceType< THaystackType<T, TRest...> >::type result;
 		bool found = false;
 
 		switch(algo) {
@@ -1915,12 +1928,16 @@ namespace cutecat {
 	 *  @return A slice embracing the found string
 	 */
 	//----------------------------------------------------------------------------------------
-	template<template<typename> class THaystackType, template<typename> class TNeedleType, typename T>
-	inline typename SelectSliceType< THaystackType<T> >::type FindOrThrow(THaystackType<T>& haystack, 
-		const TNeedleType<T>& needle,
+	 template<
+		 template<typename, typename...> class THaystackType, 
+		 template<typename, typename...> class TNeedleType, 
+		 typename T,
+		 typename... TRest>
+	inline typename SelectSliceType< THaystackType<T, TRest...> >::type FindOrThrow(THaystackType<T, TRest...>& haystack, 
+		const TNeedleType<T, TRest...>& needle,
 		SearchAlgorithm algo = SEARCH_ALGORITHM_AUTO)
 	{
-		typename detail::SelectSliceType< THaystackType<T> >::type result;
+		typename detail::SelectSliceType< THaystackType<T, TRest...> >::type result;
 		if(!Find(haystack, needle, result)) {
 			throw PatternNotFound();
 		}
@@ -1948,11 +1965,16 @@ namespace cutecat {
 	 *  @return A slice embracing the found string
 	 */
 	//----------------------------------------------------------------------------------------
-	template<template<typename> class THaystackType, template<typename> class TNeedleType, typename T>
-	inline typename detail::SelectSliceType< THaystackType<T> >::type FindOrDefault(THaystackType<T>& haystack, const TNeedleType<T>& needle,
-		typename const detail::SelectSliceType< THaystackType<T> >::type& default_result)
+	 template<
+		 template<typename, typename...> class THaystackType, 
+		 template<typename, typename...> class TNeedleType, 
+		 typename T,
+		 typename... TRest>
+	inline typename detail::SelectSliceType< THaystackType<T, TRest...> >::type 
+	FindOrDefault(THaystackType<T, TRest...>& haystack, const TNeedleType<T, TRest...>& needle,
+		typename const detail::SelectSliceType< THaystackType<T, TRest...> >::type& default_result)
 	{
-		typename detail::SelectSliceType< THaystackType<T> >::type result;
+		typename detail::SelectSliceType< THaystackType<T, TRest...> >::type result;
 		if(!Find(haystack, needle, result)) {
 			return default_result;
 		}
