@@ -407,6 +407,61 @@ namespace cutecat {
 
 		}
 
+
+	public:
+
+		template <typename TSourceStringOrSliceType>
+		BaseMutableSlice<TStringType> operator <=(TSourceStringOrSliceType& other)
+		{
+			BaseMutableSlice<TStringType>&& s = reinterpret_cast<BaseMutableSlice<TStringType>&&>(*this);
+			s._make_mutable();
+			s <= other;
+
+			return s;
+		} 
+
+
+
+		template <typename TSourceStringOrSliceType>
+		BaseMutableSlice<TStringType> operator <=(BaseMaybeMutableSlice<TStringType>&& other)
+		{
+			BaseMutableSlice<TStringType>&& s = reinterpret_cast<BaseMutableSlice<TStringType>&&>(*this);
+			s._make_mutable();
+			s <= static_cast<BaseImmutableSlice<TStringType>&&>(other);
+
+			return s;
+		}
+
+
+		BaseMutableSlice<TStringType> operator <= (T fill)
+		{
+			BaseMutableSlice<TStringType>&& s = reinterpret_cast<BaseMutableSlice<TStringType>&&>(*this);
+			s._make_mutable();
+			s <= fill;
+
+			return s;
+		}
+
+
+		BaseMutableSlice<TStringType>&& operator <= (const T* fill)
+		{
+			BaseMutableSlice<TStringType>&& s = reinterpret_cast<BaseMutableSlice<TStringType>&&>(*this);
+			s._make_mutable();
+			s <= fill;
+
+			return s;
+		}
+
+
+	private:
+
+		void _make_mutable() {
+			// TODO: encapsulate
+			if(src.flags & TStringType::FLAG_STATIC) {
+				src._make_nonstatic(data, data_end);
+			}
+		}
+
 	protected:
 
 		TStringType& src;
@@ -432,19 +487,6 @@ namespace cutecat {
 			: BaseMaybeMutableSlice(data, data_end, src)
 		{
 
-		}
-
-	public:
-
-		// ---------------------------------------------------------------------
-		/** TODO */
-		// ---------------------------------------------------------------------
-		BaseMutableSlice(BaseMaybeMutableSlice&& other)
-			: BaseMaybeMutableSlice(other.src, other.data, other.data_end)
-		{
-			if(src.flags & TStringType::FLAG_STATIC) {
-				src._make_nonstatic(data, data_end);
-			}
 		}
 
 	public:
@@ -584,42 +626,9 @@ namespace cutecat {
 	};
 
 
-	// TODO: remove potential overhead by just doing a reinterpret_cast 
 
+	
 
-	template <typename TDestStringType, typename TSourceStringOrSliceType>
-	BaseMutableSlice<TDestStringType> operator <=(BaseMaybeMutableSlice<TDestStringType>&& self,
-		BaseMaybeMutableSlice<TDestStringType>&& other)
-	{
-		return BaseMutableSlice<TDestStringType>(std::move(self))
-			.operator<=(static_cast<BaseImmutableSlice<TDestStringType>&&>(other));
-	}
-
-	// TODO: this is very open because BaseMaybeMutableSlice causes ambiguity with the 
-	// members in MutableSlice
-	template <typename TDestStringOrSliceType, typename TSourceStringOrSliceType>
-	BaseMutableSlice<typename TDestStringOrSliceType::string_type> operator <=(TDestStringOrSliceType&& self,
-		TSourceStringOrSliceType& other)
-	{
-		return (BaseMutableSlice<typename TDestStringOrSliceType::string_type>(std::move(self))).operator<=(other);
-	}
-
-
-
-	template <typename TDestStringType>
-	BaseMutableSlice<TDestStringType> operator <= (BaseMaybeMutableSlice<TDestStringType>&& self, 
-		typename TDestStringType::value_type fill)
-	{
-		return (BaseMutableSlice<TDestStringType>(std::move(self))).operator<=(fill);
-	}
-
-
-	template <typename TDestStringType>
-	BaseMutableSlice<TDestStringType> operator <= (BaseMaybeMutableSlice<TDestStringType>&& self, 
-		const typename TDestStringType::value_type* fill)
-	{
-		return BaseMutableSlice<TDestStringType>(std::move(self)) <= fill;
-	}
 
 
 	namespace detail {
@@ -676,6 +685,7 @@ namespace cutecat {
 	private:
 
 		friend class BaseMutableSlice<BaseString>;
+		friend class BaseMaybeMutableSlice<BaseString>;
 
 	private:
 
@@ -725,6 +735,7 @@ namespace cutecat {
 	public:
 
 		typedef T value_type;
+		typedef BaseString string_type;
 
 		typedef BaseImmutableSlice<BaseString>		ImmutableSliceType;
 		typedef BaseMutableSlice<BaseString>		MutableSliceType;
@@ -1120,7 +1131,8 @@ namespace cutecat {
 		// ------------------------------- --------------------------------------
 		template<typename TFirst, typename TSecond>
 		MutableSliceType set(TFirst begini, TSecond endi) {
-			return MutableSliceType ((*this)(begini, endi));
+			assert(_is_valid_slice(begini, endi));
+			return MutableSliceType (data + begini, data + endi, *this);
 		}
 
 
@@ -1129,7 +1141,8 @@ namespace cutecat {
 		// ---------------------------------------------------------------------
 		template<typename TFirst, typename TSecond>
 		ImmutableSliceType get(TFirst begini, TSecond endi) const {
-			return ImmutableSliceType ((*this)(begini, endi));
+			assert(_is_valid_slice(begini, endi));
+			return ImmutableSliceType (data + begini, data + endi);
 		} 
 
 
@@ -1138,7 +1151,8 @@ namespace cutecat {
 		// ---------------------------------------------------------------------
 		template<typename TFirst>
 		MutableSliceType  set(TFirst index) {
-			return MutableSliceType ((*this)(index));
+			assert(_is_valid_slice(index, index));
+			return MutableSliceType (data + index, data + index, *this);
 		}
 
 
@@ -1147,35 +1161,12 @@ namespace cutecat {
 		// ---------------------------------------------------------------------
 		template<typename TFirst>
 		ImmutableSliceType get(TFirst index) const {
-			return ImmutableSliceType ((*this)(index));
+			assert(_is_valid_slice(index, index));
+			return ImmutableSliceType (data + index, data + index);
 		}
 
 
 	public:
-
-		// std::iterator_traits<T> supplies the necessary iterator meta info for
-		// raw pointers automatically
-
-		// ---------------------------------------------------------------------
-		/** TODO */
-		// ---------------------------------------------------------------------
-		T* begin() {
-			if(flags & FLAG_STATIC) {
-				_make_nonstatic();
-			}
-			return data;
-		}
-
-
-		// ---------------------------------------------------------------------
-		/** TODO */
-		// ---------------------------------------------------------------------
-		T* end() {
-			if(flags & FLAG_STATIC) {
-				_make_nonstatic();
-			}
-			return data + length();
-		}
 
 
 		// ---------------------------------------------------------------------
@@ -1820,18 +1811,18 @@ namespace cutecat {
 	{
 		typedef typename TStringOrSliceType::value_type T;
 
-		const T* data = src.cbegin(), *const end = src.end();
+		const T* data = src.cbegin(), *const data_end = src.cend();
 		std::size_t idx = 0u, last = 0u, last_non_split = 0u;
 
 		// merging of adjacent split characters
 		if(merge_adjacent) {
-			while(*data == split) {
+			while(data != data_end && *data == split) {
 				++last;
 				++idx;
 				++data;
 			}
 
-			while(data != end) {
+			while(data != data_end) {
 				++idx;
 				if(*data == split) {
 					if(data[1] != split) {
@@ -1853,7 +1844,7 @@ namespace cutecat {
 		}
 
 		// no merging of adjacent split characters
-		while(data != end) {
+		while(data != data_end) {
 			++idx;
 			if(*data == split) {
 				*outp++ = src.get(last, last_non_split);
