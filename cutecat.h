@@ -223,17 +223,6 @@ namespace cutecat {
 	}
 
 
-	namespace detail {
-		template<typename TLeft, typename TRight, typename TResult> struct enable_if_same_or_const
-		{
-			typedef typename std::enable_if<
-				std::is_same<
-					typename std::remove_const<TLeft>::type,
-					typename std::remove_const<TRight>::type
-				>::value, 
-			TResult>::type type;
-		};
-	}
 
 	template<typename TStringType>
 	class BaseMutableSlice;
@@ -411,47 +400,47 @@ namespace cutecat {
 	public:
 
 		template <typename TSourceStringOrSliceType>
-		BaseMutableSlice<TStringType> operator <=(TSourceStringOrSliceType& other)
+		BaseMutableSlice<TStringType>& operator <=(TSourceStringOrSliceType& other)
 		{
-			BaseMutableSlice<TStringType>&& s = reinterpret_cast<BaseMutableSlice<TStringType>&&>(*this);
-			s._make_mutable();
+			BaseMutableSlice<TStringType>& s = make_mutable();
 			s <= other;
-
 			return s;
 		} 
 
 
 
 		template <typename TSourceStringOrSliceType>
-		BaseMutableSlice<TStringType> operator <=(BaseMaybeMutableSlice<TStringType>&& other)
+		BaseMutableSlice<TStringType>& operator <=(BaseMaybeMutableSlice<TStringType>&& other)
 		{
-			BaseMutableSlice<TStringType>&& s = reinterpret_cast<BaseMutableSlice<TStringType>&&>(*this);
-			s._make_mutable();
+			BaseMutableSlice<TStringType>& s = make_mutable();
 			s <= static_cast<BaseImmutableSlice<TStringType>&&>(other);
-
 			return s;
 		}
 
 
-		BaseMutableSlice<TStringType> operator <= (T fill)
+		BaseMutableSlice<TStringType>& operator <= (T fill)
 		{
-			BaseMutableSlice<TStringType>&& s = reinterpret_cast<BaseMutableSlice<TStringType>&&>(*this);
-			s._make_mutable();
+			BaseMutableSlice<TStringType>& s = make_mutable();
 			s <= fill;
-
 			return s;
 		}
 
 
-		BaseMutableSlice<TStringType>&& operator <= (const T* fill)
+		BaseMutableSlice<TStringType>& operator <= (const T* fill)
 		{
-			BaseMutableSlice<TStringType>&& s = reinterpret_cast<BaseMutableSlice<TStringType>&&>(*this);
-			s._make_mutable();
+			BaseMutableSlice<TStringType>& s = make_mutable();
 			s <= fill;
-
 			return s;
 		}
 
+	public:
+
+		BaseMutableSlice<TStringType>& make_mutable() {
+			// dirty hack
+			BaseMutableSlice<TStringType>& s = reinterpret_cast<BaseMutableSlice<TStringType>&>(*this);
+			s._make_mutable();
+			return s;
+		}
 
 	private:
 
@@ -1132,7 +1121,7 @@ namespace cutecat {
 		template<typename TFirst, typename TSecond>
 		MutableSliceType set(TFirst begini, TSecond endi) {
 			assert(_is_valid_slice(begini, endi));
-			return MutableSliceType (data + begini, data + endi, *this);
+			return ((*this)(begini, endi)).make_mutable();
 		}
 
 
@@ -1142,7 +1131,7 @@ namespace cutecat {
 		template<typename TFirst, typename TSecond>
 		ImmutableSliceType get(TFirst begini, TSecond endi) const {
 			assert(_is_valid_slice(begini, endi));
-			return ImmutableSliceType (data + begini, data + endi);
+			return (*this)(begini, endi);
 		} 
 
 
@@ -1152,7 +1141,7 @@ namespace cutecat {
 		template<typename TFirst>
 		MutableSliceType  set(TFirst index) {
 			assert(_is_valid_slice(index, index));
-			return MutableSliceType (data + index, data + index, *this);
+			return ((*this)(index,  index)).make_mutable();
 		}
 
 
@@ -1162,7 +1151,7 @@ namespace cutecat {
 		template<typename TFirst>
 		ImmutableSliceType get(TFirst index) const {
 			assert(_is_valid_slice(index, index));
-			return ImmutableSliceType (data + index, data + index);
+			return (*this)(begini,  endi);
 		}
 
 
