@@ -5,6 +5,8 @@ cutecat
 The C++ string library that all the cute kittens use. It is highly efficient, uses nice syntax, 
 is `std::string`-compatible and has all the string tools you've always missed in C++.
 
+The library is not complete yet, below is a summary of currently implemented and planned features. The core functionality - an easy-to-use, sliceable string implementation - is ready for productive use and test-covered.
+
 Slices
 -------
 _(done)_
