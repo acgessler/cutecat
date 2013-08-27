@@ -7,6 +7,7 @@ is `std::string`-compatible and has all the string tools you've always missed in
 
 Slices
 -------
+_(done)_
 
 With `std::string`, inserting, replacing or adding to strings is as with all `std::` containers
 a bit tedious. _cutecat_ uses slices to enable insertion, erasure and substring operation. To quickly refer
@@ -43,6 +44,8 @@ String result = st(1,6) <cat> st(2,7) <cat> st(0, Back(1));
 Lazy Concatenation
 -------
 
+_(not done)_
+
 String concatenation with _cutecat_ uses expression templates to optimize concatenations. String operations
 can thus be expressed  in the simplest possible way without inducing unnecessary copies. 
 
@@ -64,6 +67,8 @@ st = st <cat> ":banana";
 
 Operations: Trim, Split, Join, Find
 -------
+
+_(partly done)_
 
 _cutecat_ contains a library of useful string operations, almost all of which are unnecessarily hard to do
 with the STL. Many of these algorithms operate much faster than their STL counterparts as they enable the
@@ -91,6 +96,8 @@ String result = Join("; ", parts);
 Operations: Format, Parse
 -------
 
+_(not done)_
+
 Type-safe `printf` and `scanf` replacements. A bit like `boost.format`,  yet more lightweight.
 
 
@@ -116,6 +123,8 @@ if(Extract("{0} -- {1}, Age: {2}" &=name &=email &=age)) {
 
 Copy-On-Write for static strings
 -------
+
+_(done)_
 
 With `std::string`, it is oftentimes a hurdle that string literals, which are in static storage and 
 assuming sane programmers will not be mutated for the entire duration of the program, are needlessly
