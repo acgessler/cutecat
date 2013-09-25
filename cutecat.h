@@ -36,6 +36,8 @@ Usage: TODO
 #ifndef INCLUDED_CUTECAT_H
 #define INCLUDED_CUTECAT_H
 
+#include <utility>
+
 namespace cutecat {
 
 	// compiler-specific configuration
@@ -651,6 +653,18 @@ namespace cutecat {
 	namespace detail {
 		// TODO:
 		struct StandardAllocationHandler {
+
+			void* allocate(std::size_t size) {
+				return ::malloc(size);
+			}
+
+			void* reallocate(void* existing, std::size_t size) {
+				return ::realloc(existing, size);
+			}
+
+			void  deallocate(void* existing) {
+				return ::free(existing);
+			}
 
 		};
 
@@ -1788,7 +1802,7 @@ namespace cutecat {
 	 *  @param[in] merge_adjacent If set to true, adjacent occurrences of the split characters
 	 *		are treated as a single occurrence. If false, adjacent occurrences cause empty string 
 	 *		slices to be generated. The same applies to split characters at the beginning or 
-	 *      end of the string, which then cause an empty slice to be generated.
+	 *      end of the string, which then cause an empty slices to be generated.
 	 *
 	 *  @return The output iterator after the split operation.
 	 */
@@ -1848,6 +1862,66 @@ namespace cutecat {
 		}
 		return outp;
 	}
+
+#if 0
+	//----------------------------------------------------------------------------------------
+	/** Split a given string at each occurrence of a split character, placing the results
+	 *  in a std:: container.
+	 *
+	 *  This version may be slightly more efficient for use with containers as it uses the
+	 *  reverse() member on the container object to allocate enough storage upfront.
+	 *
+	 *  @param[in] split		Character to split input string at.
+	 *  @param[out] cont		std::container-like type that at least provides reserve() and
+	 *                          supports std::back_inserter.
+	 *
+	 *  @param[in] merge_adjacent If set to true, adjacent occurrences of the split characters
+	 *		are treated as a single occurrence. If false, adjacent occurrences cause empty string 
+	 *		slices to be generated. The same applies to split characters at the beginning or 
+	 *      end of the string, which then cause an empty slices to be generated.
+	 *
+	 *  @return The output iterator after the split operation.
+	 */
+	//----------------------------------------------------------------------------------------
+	template <class TStringOrSliceType, class TContainerType>
+	void Split(typename TStringOrSliceType::value_type split, TStringOrSliceType& src, TContainerType& cont, 
+		bool merge_adjacent = true
+	)
+	{
+		typedef typename TStringOrSliceType::value_type T;
+
+		const T* data = src.cbegin(), *const data_end = src.cend();
+		std::size_t count = 0;
+		if(merge_adjacent) {
+			bool last_was_split = false;
+			for(data; data != data_end; ++data) {
+				if(*data == split) {
+					if(!last_was_split) {
+						last_was_split = true;
+						++count;
+					}
+				}
+				else {
+					last_was_split = false;
+				}
+			}
+
+			if(!last_was_split) {
+				++count;
+			}
+		}
+		else {
+			for(data; data != data_end; ++data) {
+				if(*data == split) {
+					++count;
+				}
+			}
+		}
+
+		cont.reserve(count);
+		Split(split, src, std::back_inserter(cont));
+	}
+#endif
 
 	struct PatternNotFound {};
 

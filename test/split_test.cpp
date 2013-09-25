@@ -56,4 +56,16 @@ TEST (SplitTest, TestSplitToSlice) {
 	ASSERT_EQ("",slices[4]);
 	ASSERT_EQ("fob",slices[5]);
 	ASSERT_EQ("",slices[6]);
+
+	// same, but using a vector to store it
+	slices.clear();
+	Split(' ', sbase, slices, false);
+	ASSERT_EQ(7,slices.size());
+	ASSERT_EQ(7,slices.capacity());
+	ASSERT_EQ("foo",slices[1]);
+	ASSERT_EQ("",slices[2]);
+	ASSERT_EQ("bar",slices[3]);
+	ASSERT_EQ("",slices[4]);
+	ASSERT_EQ("fob",slices[5]);
+	ASSERT_EQ("",slices[6]);
 }
